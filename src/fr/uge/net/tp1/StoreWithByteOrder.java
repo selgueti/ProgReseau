@@ -24,8 +24,6 @@ public class StoreWithByteOrder {
         }
         var path = Path.of(args[1]);
 
-
-
         var buffer = ByteBuffer.allocate(BUFFER_SIZE);
 
         switch (args[0].toUpperCase()) {
