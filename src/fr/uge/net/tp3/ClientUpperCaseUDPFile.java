@@ -42,7 +42,7 @@ public class ClientUpperCaseUDPFile {
         var lines = Files.readAllLines(Path.of(inFilename), UTF8);
         var upperCaseLines = new ArrayList<String>();
 
-        SynchronousQueue<ClientUppderCaseUDPTimeoutRetry.Response> blockingDeque = new SynchronousQueue<>();
+        SynchronousQueue<ClientUpperCaseUDPTimeoutRetry.Response> blockingDeque = new SynchronousQueue<>();
         var bbSend = ByteBuffer.allocate(BUFFER_SIZE);
 
         try (DatagramChannel dc = DatagramChannel.open().bind(null)) {
@@ -70,7 +70,7 @@ public class ClientUpperCaseUDPFile {
                     var msg = charset.decode(bbReceive).toString();
                     bbReceive.clear();
                     try {
-                        blockingDeque.put(new ClientUppderCaseUDPTimeoutRetry.Response(sender, msg, size));
+                        blockingDeque.put(new ClientUpperCaseUDPTimeoutRetry.Response(sender, msg, size));
                     } catch (InterruptedException e) {
                         return;
                     }
@@ -81,7 +81,7 @@ public class ClientUpperCaseUDPFile {
             for (var line : lines) {
                 bbSend = charset.encode(line);
                 dc.send(bbSend, server);
-                ClientUppderCaseUDPTimeoutRetry.Response response = null;
+                ClientUpperCaseUDPTimeoutRetry.Response response = null;
                 while (response == null) {
                     response = blockingDeque.poll(timeout, TimeUnit.MILLISECONDS);
                     if (response == null) {

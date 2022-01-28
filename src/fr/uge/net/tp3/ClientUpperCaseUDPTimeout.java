@@ -73,7 +73,7 @@ public class ClientUpperCaseUDPTimeout {
                     try {
                         blockingDeque.put(new Response(sender, msg, size));
                     } catch (InterruptedException e) {
-                        logger.info("thread recreiver closed.");
+                        logger.info("thread receiver closed.");
                         return;
                     }
                 }

@@ -13,10 +13,10 @@ import java.util.Scanner;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
-public class ClientUppderCaseUDPTimeoutRetry {
+public class ClientUpperCaseUDPTimeoutRetry {
 
-    record Response(InetSocketAddress sender, String msg, int size){
-        Response{
+    record Response(InetSocketAddress sender, String msg, int size) {
+        Response {
             Objects.requireNonNull(sender);
             Objects.requireNonNull(msg);
         }
@@ -78,9 +78,9 @@ public class ClientUppderCaseUDPTimeoutRetry {
                 bbSend = charset.encode(line);
                 dc.send(bbSend, server);
                 Response response = null;
-                while(response == null){
+                while (response == null) {
                     response = blockingDeque.poll(1000, TimeUnit.MILLISECONDS);
-                    if(response == null){
+                    if (response == null) {
                         System.out.println("Server doesn't reply, send back the message...");
                         bbSend.flip();
                         dc.send(bbSend, server);
