@@ -75,6 +75,7 @@ public class ClientBetterUpperCaseUDP {
             for(int i = 0; i < sizeCharset; i++){
                 tmp.put(buffer.get());
             }
+
             tmp.flip();
             var charsetName = ASCII_CHARSET.decode(tmp).toString();
             if(!Charset.isSupported(charsetName)){
