@@ -2,8 +2,6 @@ package fr.uge.net.tp2;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.BufferOverflowException;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 import java.nio.charset.Charset;
@@ -38,13 +36,13 @@ public class ClientBetterUpperCaseUDP {
         Objects.requireNonNull(charsetName);
         var charset = Charset.forName(charsetName);
         var bb = ByteBuffer.allocate(MAX_PACKET_SIZE);
-        try {
-            bb.putInt(charsetName.length());            /* size of charsetName  */
-            bb.put(ASCII_CHARSET.encode(charsetName));  /* charsetName in ASCII */
-            bb.put(charset.encode(msg));                /* msg in this charset  */
-        } catch (BufferOverflowException b) {
+        bb.putInt(charsetName.length());
+        bb.put(ASCII_CHARSET.encode(charsetName));
+        var bufferMessage = charset.encode(msg);
+        if(bb.remaining() < bufferMessage.remaining()){
             return Optional.empty();
         }
+        bb.put(bufferMessage);
         return Optional.of(bb);
     }
 
@@ -63,31 +61,30 @@ public class ClientBetterUpperCaseUDP {
     public static Optional<String> decodeMessage(ByteBuffer buffer) {
         Objects.requireNonNull(buffer);
         buffer.flip();
-        if(buffer.capacity() > MAX_PACKET_SIZE){
+        if(buffer.remaining() > MAX_PACKET_SIZE || buffer.remaining() <= Integer.SIZE / 8){
             return Optional.empty();
         }
-        try {
-            var sizeCharset = buffer.getInt();
-            if(sizeCharset < 0){
-                return Optional.empty();
-            }
-            ByteBuffer tmp = ByteBuffer.allocate(sizeCharset);
-            for(int i = 0; i < sizeCharset; i++){
-                tmp.put(buffer.get());
-            }
-
-            tmp.flip();
-            var charsetName = ASCII_CHARSET.decode(tmp).toString();
-            if(!Charset.isSupported(charsetName)){
-                return Optional.empty();
-            }
-            var charset = Charset.forName(charsetName);
-            var msg = charset.decode(buffer).toString();
-            return Optional.of(msg);
-
-        }catch (BufferUnderflowException e){
+        var sizeCharsetName = buffer.getInt();
+        if(sizeCharsetName <= 0){
             return Optional.empty();
         }
+        var oldLimit = buffer.limit();
+        var newPosition = buffer.position() + sizeCharsetName;
+        if(oldLimit < newPosition){
+            return Optional.empty();
+        }
+        buffer.limit(newPosition);
+        var charsetName = ASCII_CHARSET.decode(buffer).toString();
+        if(!Charset.isSupported(charsetName)){
+            return Optional.empty();
+        }
+        var charset = Charset.forName(charsetName);
+        if(oldLimit < buffer.position()){
+            return Optional.empty();
+        }
+        buffer.limit(oldLimit);
+        var msg = charset.decode(buffer).toString();
+        return Optional.of(msg);
     }
 
     public static void usage() {
@@ -123,8 +120,6 @@ public class ClientBetterUpperCaseUDP {
                 dc.send(packet, destination);
                 buffer.clear();
                 dc.receive(buffer);
-
-                // buffer.flip();
 
                 decodeMessage(buffer).ifPresentOrElse(
                         (str) -> System.out.println("Received: " + str),
