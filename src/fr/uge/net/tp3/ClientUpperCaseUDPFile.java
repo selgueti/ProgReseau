@@ -14,12 +14,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import static java.nio.file.StandardOpenOption.*;
 
 public class ClientUpperCaseUDPFile {
     private final static Charset UTF8 = StandardCharsets.UTF_8;
     private final static int BUFFER_SIZE = 1024;
+
+    private static final Logger logger = Logger.getLogger(ClientUpperCaseUDPFile.class.getName());
 
     private static void usage() {
         System.out.println("Usage : ClientUpperCaseUDPFile in-filename out-filename timeout host port ");
@@ -53,16 +56,16 @@ public class ClientUpperCaseUDPFile {
                     try {
                         sender = (InetSocketAddress) dc.receive(bbReceive);
                     } catch (ClosedByInterruptException e) {
-                        System.out.println("ClosedByInterruptException");
+                        logger.info("thread receiver closed.");
                         return;
                     } catch (AsynchronousCloseException e) {
-                        System.out.println("AsynchronousCloseException");
+                        logger.info("thread already closed.");
                         return;
                     } catch (ClosedChannelException e) {
-                        System.out.println("ClosedChannelException");
+                        logger.warning("ClosedChannelException but in try-with-resource ?");
                         return;
                     } catch (IOException e) {
-                        System.out.println("IOException");
+                        logger.info("IOException");
                         return;
                     }
                     bbReceive.flip();
@@ -72,6 +75,7 @@ public class ClientUpperCaseUDPFile {
                     try {
                         blockingDeque.put(new ClientUpperCaseUDPTimeoutRetry.Response(sender, msg, size));
                     } catch (InterruptedException e) {
+                        logger.info("thread receiver closed.");
                         return;
                     }
                 }

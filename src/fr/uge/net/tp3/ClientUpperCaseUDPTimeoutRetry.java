@@ -12,6 +12,7 @@ import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public class ClientUpperCaseUDPTimeoutRetry {
 
@@ -23,6 +24,8 @@ public class ClientUpperCaseUDPTimeoutRetry {
     }
 
     public static final int BUFFER_SIZE = 1024;
+
+    private static final Logger logger = Logger.getLogger(ClientUpperCaseUDPTimeoutRetry.class.getName());
 
     private static void usage() {
         System.out.println("Usage : NetcatUDP host port charset");
@@ -48,16 +51,16 @@ public class ClientUpperCaseUDPTimeoutRetry {
                     try {
                         sender = (InetSocketAddress) dc.receive(bbReceive);
                     } catch (ClosedByInterruptException e) {
-                        System.out.println("ClosedByInterruptException");
+                        logger.info("thread receiver closed.");
                         return;
                     } catch (AsynchronousCloseException e) {
-                        System.out.println("AsynchronousCloseException");
+                        logger.info("thread already closed.");
                         return;
                     } catch (ClosedChannelException e) {
-                        System.out.println("ClosedChannelException");
+                        logger.warning("ClosedChannelException but in try-with-resource ?");
                         return;
                     } catch (IOException e) {
-                        System.out.println("IOException");
+                        logger.info("IOException");
                         return;
                     }
                     bbReceive.flip();
@@ -67,6 +70,7 @@ public class ClientUpperCaseUDPTimeoutRetry {
                     try {
                         blockingDeque.put(new Response(sender, msg, size));
                     } catch (InterruptedException e) {
+                        logger.info("thread receiver closed.");
                         return;
                     }
                 }
