@@ -80,10 +80,10 @@ public class ClientIdUpperCaseUDPOneByOne {
             // Read all lines of inFilename opened in UTF-8
             var lines = Files.readAllLines(Path.of(inFilename), UTF8);
             var upperCaseLines = new ArrayList<String>();
-            long i = 0;
+            long id = 0;
             for(var line: lines){
                 var last_send = 0L;
-                bbSender.putLong(i).put(UTF8.encode(line));
+                bbSender.putLong(id).put(UTF8.encode(line));
                 bbSender.flip();
                 for(;;){
                     var currentTime = System.currentTimeMillis();
@@ -97,13 +97,13 @@ public class ClientIdUpperCaseUDPOneByOne {
                     if(response == null){
                         last_send = 0L; // force the return of the (i-1)th datagram
                     }
-                    else if(response.id() == i){
+                    else if(response.id() == id){
                         upperCaseLines.add(response.message());
                         break;
                     }
                 }
                 bbSender.clear();
-                i++;
+                id++;
             }
             listenerThread.interrupt();
             Files.write(Paths.get(outFilename), upperCaseLines, UTF8, CREATE, WRITE, TRUNCATE_EXISTING);
