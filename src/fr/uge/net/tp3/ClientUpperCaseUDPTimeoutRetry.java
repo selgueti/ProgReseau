@@ -45,7 +45,7 @@ public class ClientUpperCaseUDPTimeoutRetry {
 
         try (var scanner = new Scanner(System.in); DatagramChannel dc = DatagramChannel.open().bind(null)) {
             Thread receiver = new Thread(() -> {
-                var bbReceive = ByteBuffer.allocate(BUFFER_SIZE);
+                var bbReceive = ByteBuffer.allocateDirect(BUFFER_SIZE);
                 InetSocketAddress sender;
                 for (; ; ) {
                     try {
@@ -56,11 +56,8 @@ public class ClientUpperCaseUDPTimeoutRetry {
                     } catch (AsynchronousCloseException e) {
                         logger.info("thread already closed.");
                         return;
-                    } catch (ClosedChannelException e) {
-                        logger.warning("ClosedChannelException but in try-with-resource ?");
-                        return;
                     } catch (IOException e) {
-                        logger.info("IOException");
+                        logger.severe("IOException");
                         return;
                     }
                     bbReceive.flip();

@@ -63,7 +63,7 @@ public class ClientUpperCaseUDPTimeout {
                         logger.warning("ClosedChannelException but in try-with-resource ?");
                         return;
                     } catch (IOException e) {
-                        logger.info("IOException");
+                        logger.severe("IOException");
                         return;
                     }
                     bbReceive.flip();
