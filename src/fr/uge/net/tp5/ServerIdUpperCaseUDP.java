@@ -54,7 +54,7 @@ public class ServerIdUpperCaseUDP {
                 buffer.clear();
                 buffer.putLong(id);
                 buffer.put(UTF8.encode(upperCaseMsg));
-                logger.info("Sending " + buffer.remaining() + " bytes from " + sender.toString());
+                logger.info("Sending " + buffer.remaining() + " bytes from " + sender);
 
                 // 5) send the packet to client
                 buffer.flip();
@@ -87,7 +87,6 @@ public class ServerIdUpperCaseUDP {
             new ServerIdUpperCaseUDP(port).serve();
         } catch (BindException e) {
             logger.severe("Server could not bind on " + port + "\nAnother server is probably running on this port.");
-            return;
         }
     }
 }

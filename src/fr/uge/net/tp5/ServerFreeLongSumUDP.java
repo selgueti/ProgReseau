@@ -13,26 +13,24 @@ import java.util.logging.Logger;
 
 import static fr.uge.net.tp5.LongSumPacket.Ack;
 import static fr.uge.net.tp5.LongSumPacket.Res;
+import static fr.uge.net.tp5.LongSumPacket.AckClean;
 
+public class ServerFreeLongSumUDP {
 
-public class ServerLongSumUDP {
-
-    private static final Logger logger = Logger.getLogger(ServerLongSumUDP.class.getName());
+    private static final Logger logger = Logger.getLogger(ServerFreeLongSumUDP.class.getName());
     private static final int BUFFER_SIZE = 1024;
-
     private final DatagramChannel dc;
     private final ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
-
     private final Map<InetSocketAddress, Map<Long , SessionSum>> map = new HashMap<>();
 
-    public ServerLongSumUDP(int port) throws IOException {
+    public ServerFreeLongSumUDP(int port) throws IOException {
         dc = DatagramChannel.open();
         dc.bind(new InetSocketAddress(port));
-        logger.info("ServerBetterUpperCaseUDP started on port " + port);
+        logger.info("ServerFreeLongSumUDP started on port " + port);
     }
 
     public static void usage() {
-        System.out.println("Usage : ServerLongSumUDP port");
+        System.out.println("Usage : ServerFreeLongSumUDP port");
     }
 
     public void serve() throws IOException {
@@ -40,11 +38,13 @@ public class ServerLongSumUDP {
             while (!Thread.interrupted()) {
                 buffer.clear();
                 var sender = (InetSocketAddress) dc.receive(buffer);
-                 // Check if buffer length ==  sizeof(Long) * 4 + sizeof(byte)
-                if(buffer.position() == ( 4 * Long.SIZE) / 8  + Byte.SIZE / 8){
+                // Check if buffer can contain a Byte
+                if(buffer.position() >= Byte.SIZE / 8){
                     buffer.flip();
                     var b = buffer.get();
-                    if(b == 1){
+
+                    // Check if buffer can contain 4 Long
+                    if(b == 1 && buffer.limit() - buffer.position() == 4 * Long.SIZE / 8){
                         var sessionId = buffer.getLong();
                         var idPosOp = buffer.getLong();
                         var totalOp = buffer.getLong();
@@ -56,7 +56,25 @@ public class ServerLongSumUDP {
                         if(optionalSum.isPresent()){
                             dc.send(new Res(sessionId, optionalSum.get()).toBuffer(), sender);
                         }
+                        // Check if buffer can contain a Long
+                    }else if (b == 4 && buffer.limit() - buffer.position() == Long.SIZE / 8){
+                        var sessionId = buffer.getLong();
+                        //logger.info(sender + " - Try to closed session with id : " + sessionId);
+
+                        //if(map.containsKey(sender) && map.get(sender).<HashMap<Long, SessionSum>>containsKey(sessionId)){
+                        if(map.containsKey(sender) && map.get(sender).containsKey(sessionId)){
+                            map.get(sender).remove(sessionId);
+                            //logger.info(sender + " - Effectively closed with id : " + sessionId);
+                            dc.send(new AckClean(sessionId).toBuffer(), sender);
+
+                        }else{
+                            //logger.warning("BUG IS THERE or sender isn't known");
+                        }
+                    }else{
+                        //logger.warning("Client doesn't respect the protocol");
                     }
+                }else{
+                    //logger.warning("Buffer empty !");
                 }
             }
         } finally {
@@ -78,7 +96,7 @@ public class ServerLongSumUDP {
         }
 
         try {
-            new ServerLongSumUDP(port).serve();
+            new ServerFreeLongSumUDP(port).serve();
         } catch (BindException e) {
             logger.severe("Server could not bind on " + port + "\nAnother server is probably running on this port.");
         }
@@ -114,4 +132,3 @@ public class ServerLongSumUDP {
         }
     }
 }
-
