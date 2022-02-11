@@ -57,7 +57,9 @@ public class ClientIdUpperCaseUDPOneByOne {
                 //sender = (InetSocketAddress) dc.receive(bbReceive);
                 dc.receive(bbReceive);
                 bbReceive.flip();
+                // TODO  check that we have size for a long in buffer
                 var id = bbReceive.getLong();
+                // TODO check that we have a good datagram
                 var msg = UTF8.decode(bbReceive).toString();
                 queue.put(new Response(id, msg));
                 bbReceive.clear();
@@ -82,20 +84,20 @@ public class ClientIdUpperCaseUDPOneByOne {
             var upperCaseLines = new ArrayList<String>();
             long id = 0;
             for(var line: lines){
-                var last_send = 0L;
+                var lastSend = 0L;
                 bbSender.putLong(id).put(UTF8.encode(line));
                 bbSender.flip();
                 for(;;){
                     var currentTime = System.currentTimeMillis();
-                    if(currentTime - last_send >  timeout){
+                    if(currentTime - lastSend >  timeout){
                         dc.send(bbSender, server);
-                        last_send = currentTime;
+                        lastSend = currentTime;
                         bbSender.flip();
                     }
-                    var remainingTime = (last_send +  timeout) - currentTime;
+                    var remainingTime = (lastSend +  timeout) - currentTime;
                     Response response = queue.poll(remainingTime, TimeUnit.MILLISECONDS);
                     if(response == null){
-                        last_send = 0L; // force the return of the (i-1)th datagram
+                        lastSend = 0L; // force the return of the (i-1)th datagram
                     }
                     else if(response.id() == id){
                         upperCaseLines.add(response.message());
