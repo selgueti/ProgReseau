@@ -55,27 +55,36 @@ public class ServerLongSumUDP {
         }
     }
 
+    /*
+     * Suppose buffer in read mode
+     * */
+    private void processOp(InetSocketAddress sender) throws IOException {
+        if(buffer.limit() - buffer.position() != (4 * Long.SIZE) / 8 ){
+            return;
+        }
+        var sessionId = buffer.getLong();
+        var idPosOp = buffer.getLong();
+        var totalOp = buffer.getLong();
+        var opValue = buffer.getLong();
+        var optionalSum = map.computeIfAbsent(sender, __ -> new HashMap<>())
+                .computeIfAbsent(sessionId, __ -> new SessionSum(totalOp))
+                .update(idPosOp, opValue);
+        dc.send(new Ack(sessionId, idPosOp).toBuffer(), sender);
+        if (optionalSum.isPresent()) {
+            dc.send(new Res(sessionId, optionalSum.get()).toBuffer(), sender);
+        }
+    }
+
     public void serve() throws IOException {
         try {
             while (!Thread.interrupted()) {
                 buffer.clear();
                 var sender = (InetSocketAddress) dc.receive(buffer);
-                // Check if buffer length ==  sizeof(Long) * 4 + sizeof(byte)
-                if (buffer.position() == (4 * Long.SIZE) / 8 + Byte.SIZE / 8) {
+                if (buffer.position() > Byte.SIZE / 8) {
                     buffer.flip();
                     var b = buffer.get();
                     if (b == 1) {
-                        var sessionId = buffer.getLong();
-                        var idPosOp = buffer.getLong();
-                        var totalOp = buffer.getLong();
-                        var opValue = buffer.getLong();
-                        var optionalSum = map.computeIfAbsent(sender, __ -> new HashMap<>())
-                                .computeIfAbsent(sessionId, __ -> new SessionSum(totalOp))
-                                .update(idPosOp, opValue);
-                        dc.send(new Ack(sessionId, idPosOp).toBuffer(), sender);
-                        if (optionalSum.isPresent()) {
-                            dc.send(new Res(sessionId, optionalSum.get()).toBuffer(), sender);
-                        }
+                        processOp(sender);
                     }
                 }
             }
