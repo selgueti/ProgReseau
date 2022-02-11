@@ -119,6 +119,7 @@ public class ClientIdUpperCaseUDPBurst {
 
         private final BitSet bitSet;
         private final int size;
+        private int count = 0;
 
         public AnswersLog(int nbLines) {
             size = nbLines;
@@ -137,16 +138,17 @@ public class ClientIdUpperCaseUDPBurst {
         public void setSend(long position) {
             Objects.checkIndex(position, size);
             synchronized (bitSet) {
-                bitSet.set(Math.toIntExact(position));
+                if (!bitSet.get(Math.toIntExact(position))) {
+                    bitSet.set(Math.toIntExact(position));
+                    count++;
+                }
             }
         }
 
         public boolean allAnswersAreReceived() {
             synchronized (bitSet) {
-                return bitSet.cardinality() == size;
+                return count == size;
             }
         }
     }
 }
-
-
