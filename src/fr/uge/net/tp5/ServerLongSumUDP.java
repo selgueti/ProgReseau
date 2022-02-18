@@ -59,7 +59,7 @@ public class ServerLongSumUDP {
      * Suppose buffer in read mode
      * */
     private void processOp(InetSocketAddress sender) throws IOException {
-        if(buffer.limit() - buffer.position() != (4 * Long.SIZE) / 8 ){
+        if(buffer.limit() - buffer.position() != 4 * Long.BYTES){
             return;
         }
         var sessionId = buffer.getLong();
@@ -80,7 +80,7 @@ public class ServerLongSumUDP {
             while (!Thread.interrupted()) {
                 buffer.clear();
                 var sender = (InetSocketAddress) dc.receive(buffer);
-                if (buffer.position() > Byte.SIZE / 8) {
+                if (buffer.position() > Byte.BYTES) {
                     buffer.flip();
                     var b = buffer.get();
                     if (b == 1) {

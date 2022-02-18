@@ -2,7 +2,7 @@ package fr.uge.net.tp5;
 
 import java.nio.ByteBuffer;
 
-public interface LongSumPacket {
+public sealed interface LongSumPacket {
 
     int BUFFER_SIZE = 1024;
 
