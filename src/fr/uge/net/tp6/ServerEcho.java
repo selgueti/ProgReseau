@@ -51,6 +51,7 @@ public class ServerEcho {
                 doRead(key);
             }
         } catch (IOException ioe) {
+            logger.warning("Hardware might be on fire");
             throw  new UncheckedIOException(ioe);
         }
     }
@@ -66,10 +67,10 @@ public class ServerEcho {
 
     private void doWrite(SelectionKey key) throws IOException {
         var datagramChannel = (DatagramChannel)key.channel();
+        buffer.clear();
         datagramChannel.send(buffer, sender);
         if (!buffer.hasRemaining()){
             key.interestOps(SelectionKey.OP_READ);
-            buffer.clear();
         }
     }
 
