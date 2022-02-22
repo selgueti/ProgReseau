@@ -16,7 +16,8 @@ public class ServerEchoPlus {
     private final DatagramChannel dc;
     private final Selector selector;
     private final int BUFFER_SIZE = 1024;
-    private final ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
+    private final ByteBuffer bufferSender = ByteBuffer.allocateDirect(BUFFER_SIZE);
+    private final ByteBuffer bufferReceiver = ByteBuffer.allocateDirect(BUFFER_SIZE);
     private SocketAddress sender;
     private final int port;
 
@@ -57,19 +58,24 @@ public class ServerEchoPlus {
 
     private void doRead(SelectionKey key) throws IOException {
         var datagramChannel = (DatagramChannel)key.channel();
-        buffer.clear();
-        sender = datagramChannel.receive(buffer);
+        bufferReceiver.clear();
+        sender = datagramChannel.receive(bufferReceiver);
         if(null != sender){
-            buffer.flip();
+            bufferReceiver.flip();
+            while(bufferReceiver.hasRemaining()){
+                bufferSender.put((byte) ((bufferReceiver.get() + 1) % 256));
+            }
+            bufferSender.flip();
             key.interestOps(SelectionKey.OP_WRITE);
         }
     }
 
     private void doWrite(SelectionKey key) throws IOException {
         var datagramChannel = (DatagramChannel)key.channel();
-        datagramChannel.send(buffer, sender);
-        if (!buffer.hasRemaining()){
+        datagramChannel.send(bufferSender, sender);
+        if (!bufferSender.hasRemaining()){
             key.interestOps(SelectionKey.OP_READ);
+            bufferSender.clear();
         }
     }
 
