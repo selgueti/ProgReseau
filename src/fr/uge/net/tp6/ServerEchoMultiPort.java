@@ -1,7 +1,9 @@
 package fr.uge.net.tp6;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.channels.DatagramChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -11,35 +13,81 @@ import java.util.stream.IntStream;
 
 public class ServerEchoMultiPort {
 
-    private final List<DatagramChannel> datagramChannels;
+    //private final List<DatagramChannel> datagramChannels;
     private final Selector selector;
+    private static final Logger logger = Logger.getLogger(ServerEcho.class.getName());
+    private final int BUFFER_SIZE = 1024;
+    public static void usage() {
+        System.out.println("Usage : ServerEchoMultiPort port1 port2");
+    }
+    private final int port1;
+    private final int port2;
 
     ServerEchoMultiPort(int port1, int port2) throws IOException {
         selector = Selector.open();
+        this.port1 = port1;
+        this.port2 = port2;
 
-        dc.configureBlocking(false);
-        dc.register(selector, SelectionKey.OP_READ);
+        /*
         datagramChannels = IntStream.range(port1, port2 + 1)
                 .mapToObj(i -> {
                     try {
-                        var
-                        return DatagramChannel.open().bind(new InetSocketAddress(i));
+                        var dc = DatagramChannel.open().bind(new InetSocketAddress(i));
+                        dc.configureBlocking(false);
+                        dc.register(selector, SelectionKey.OP_READ);
+                        return dc;
                     } catch (IOException e) {
-                        e.printStackTrace();
-                        return null;
+                        logger.warning("carte réseau en feu");
+                        return null; // TODO ok ?
                     }
                 })
                 .toList();
+                */
+
+
+        IntStream.range(port1, port2 + 1)
+                .forEach(i -> {
+                    try {
+                        var dc = DatagramChannel.open().bind(new InetSocketAddress(i));
+                        dc.configureBlocking(false);
+                        dc.register(selector, SelectionKey.OP_READ, new Context());
+                    } catch (IOException e) {
+                        logger.warning("carte réseau en feu / port utilisé / accès non autorisé sur le port");
+                    }
+                });
     }
 
-    public void serve(){}
+    public void serve() throws IOException {
+        logger.info("ServerEcho started on port range(" + port1 + "," + port2 +")");
+        while (!Thread.interrupted()) {
+            try {
+                selector.select(this::treatKey);
+            }catch (UncheckedIOException tunneled){
+                throw tunneled.getCause();
+            }
+        }
+    }
 
-    private static final Logger logger = Logger.getLogger(ServerEcho.class.getName());
+    private void doRead(SelectionKey key) throws IOException {
+       //TODO
+    }
 
-    private final int BUFFER_SIZE = 1024;
+    private void doWrite(SelectionKey key) throws IOException {
+        //TODO
+    }
 
-    public static void usage() {
-        System.out.println("Usage : ServerEchoMultiPort port1 port2");
+    private void treatKey(SelectionKey key) {
+        try {
+            if (key.isValid() && key.isWritable()) {
+                doWrite(key);
+            }
+            if (key.isValid() && key.isReadable()) {
+                doRead(key);
+            }
+        } catch (IOException ioe) {
+            logger.warning("Hardware might be on fire");
+            throw  new UncheckedIOException(ioe);
+        }
     }
 
     public static void main(String[] args) throws IOException {
@@ -62,6 +110,8 @@ public class ServerEchoMultiPort {
     }
 
     static class Context {
+        //TODO
+        //private final SocketAddress sender;
 
     }
 }
