@@ -23,21 +23,12 @@ public class ClientIdUpperCaseUDPOneByOne {
     private static final Logger logger = Logger.getLogger(ClientIdUpperCaseUDPOneByOne.class.getName());
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static final int BUFFER_SIZE = 1024;
-
-    private record Response(long id, String message) {
-
-    }
-
     private final String inFilename;
     private final String outFilename;
     private final long timeout;
     private final InetSocketAddress server;
     private final DatagramChannel dc;
     private final SynchronousQueue<Response> queue = new SynchronousQueue<>();
-
-    public static void usage() {
-        System.out.println("Usage : ClientIdUpperCaseUDPOneByOne in-filename out-filename timeout host port ");
-    }
 
     public ClientIdUpperCaseUDPOneByOne(String inFilename, String outFilename, long timeout, InetSocketAddress server)
             throws IOException {
@@ -49,10 +40,29 @@ public class ClientIdUpperCaseUDPOneByOne {
         dc.bind(null);
     }
 
+    public static void usage() {
+        System.out.println("Usage : ClientIdUpperCaseUDPOneByOne in-filename out-filename timeout host port ");
+    }
+
+    public static void main(String[] args) throws IOException, InterruptedException {
+        if (args.length != 5) {
+            usage();
+            return;
+        }
+
+        var inFilename = args[0];
+        var outFilename = args[1];
+        var timeout = Long.parseLong(args[2]);
+        var server = new InetSocketAddress(args[3], Integer.parseInt(args[4]));
+
+        // Create client with the parameters and launch it
+        new ClientIdUpperCaseUDPOneByOne(inFilename, outFilename, timeout, server).launch();
+    }
+
     private void listenerThreadRun() {
         ByteBuffer bbReceive = ByteBuffer.allocateDirect(BUFFER_SIZE);
         //InetSocketAddress sender;
-        for(;;){
+        for (; ; ) {
             try {
                 //sender = (InetSocketAddress) dc.receive(bbReceive);
                 dc.receive(bbReceive);
@@ -63,7 +73,7 @@ public class ClientIdUpperCaseUDPOneByOne {
                 var msg = UTF8.decode(bbReceive).toString();
                 queue.put(new Response(id, msg));
                 bbReceive.clear();
-            } catch ( AsynchronousCloseException | InterruptedException e){
+            } catch (AsynchronousCloseException | InterruptedException e) {
                 logger.info("DatagramChanel closed");
                 return;
             } catch (IOException e) {
@@ -83,23 +93,22 @@ public class ClientIdUpperCaseUDPOneByOne {
             var lines = Files.readAllLines(Path.of(inFilename), UTF8);
             var upperCaseLines = new ArrayList<String>();
             long id = 0;
-            for(var line: lines){
+            for (var line : lines) {
                 var lastSend = 0L;
                 bbSender.putLong(id).put(UTF8.encode(line));
                 bbSender.flip();
-                for(;;){
+                for (; ; ) {
                     var currentTime = System.currentTimeMillis();
-                    if(currentTime - lastSend >  timeout){
+                    if (currentTime - lastSend > timeout) {
                         dc.send(bbSender, server);
                         lastSend = currentTime;
                         bbSender.flip();
                     }
-                    var remainingTime = (lastSend +  timeout) - currentTime;
+                    var remainingTime = (lastSend + timeout) - currentTime;
                     Response response = queue.poll(remainingTime, TimeUnit.MILLISECONDS);
-                    if(response == null){
+                    if (response == null) {
                         lastSend = 0L; // force the return of the (i-1)th datagram
-                    }
-                    else if(response.id() == id){
+                    } else if (response.id() == id) {
                         upperCaseLines.add(response.message());
                         break;
                     }
@@ -114,18 +123,6 @@ public class ClientIdUpperCaseUDPOneByOne {
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        if (args.length != 5) {
-            usage();
-            return;
-        }
-
-        var inFilename = args[0];
-        var outFilename = args[1];
-        var timeout = Long.parseLong(args[2]);
-        var server = new InetSocketAddress(args[3], Integer.parseInt(args[4]));
-
-        // Create client with the parameters and launch it
-        new ClientIdUpperCaseUDPOneByOne(inFilename, outFilename, timeout, server).launch();
+    private record Response(long id, String message) {
     }
 }

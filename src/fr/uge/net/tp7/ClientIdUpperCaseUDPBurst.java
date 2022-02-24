@@ -12,32 +12,34 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
 import static java.nio.file.StandardOpenOption.*;
 
-public class ClientIdUpperCaseUDPOneByOne {
+public class ClientIdUpperCaseUDPBurst {
 
-    private static final Logger logger = Logger.getLogger(ClientIdUpperCaseUDPOneByOne.class.getName());
+    private static final Logger logger = Logger.getLogger(ClientIdUpperCaseUDPBurst.class.getName());
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static final int BUFFER_SIZE = 1024;
     private final List<String> lines;
-    private final List<String> upperCaseLines = new ArrayList<>();
+    private final ArrayList<String> upperCaseLines = new ArrayList<>();
     private final long timeout;
     private final InetSocketAddress serverAddress;
     private final DatagramChannel dc;
     private final Selector selector;
     private final SelectionKey uniqueKey;
     // TODO add new fields
+    private final ResponsesLog responsesLog;
     private final ByteBuffer sendBuffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
     private final ByteBuffer receiveBuffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
     private State state;
-    private long currentLine = 0L;
     private long lastSend = 0L;
-    private ClientIdUpperCaseUDPOneByOne(List<String> lines, long timeout, InetSocketAddress serverAddress,
-                                         DatagramChannel dc, Selector selector, SelectionKey uniqueKey) {
+    private long currentLine = 0;
+    private ClientIdUpperCaseUDPBurst(List<String> lines, long timeout, InetSocketAddress serverAddress,
+                                      DatagramChannel dc, Selector selector, SelectionKey uniqueKey) {
         this.lines = lines;
         this.timeout = timeout;
         this.serverAddress = serverAddress;
@@ -45,19 +47,15 @@ public class ClientIdUpperCaseUDPOneByOne {
         this.selector = selector;
         this.uniqueKey = uniqueKey;
         this.state = State.SENDING;
-
-        // Prepare sendBuffer for first send
-        sendBuffer.putLong(0);
-        sendBuffer.put(UTF8.encode(lines.get(0)));
-        sendBuffer.flip();
+        this.responsesLog = new ResponsesLog(lines.size());
     }
 
     private static void usage() {
-        System.out.println("Usage : ClientIdUpperCaseUDPOneByOne in-filename out-filename timeout host port ");
+        System.out.println("Usage : ClientIdUpperCaseUDPBurst in-filename out-filename timeout host port ");
     }
 
-    public static ClientIdUpperCaseUDPOneByOne create(String inFilename, long timeout,
-                                                      InetSocketAddress serverAddress) throws IOException {
+    public static ClientIdUpperCaseUDPBurst create(String inFilename, long timeout,
+                                                   InetSocketAddress serverAddress) throws IOException {
         Objects.requireNonNull(inFilename);
         Objects.requireNonNull(serverAddress);
         Objects.checkIndex(timeout, Long.MAX_VALUE);
@@ -69,7 +67,7 @@ public class ClientIdUpperCaseUDPOneByOne {
         dc.bind(null);
         var selector = Selector.open();
         var uniqueKey = dc.register(selector, SelectionKey.OP_WRITE);
-        return new ClientIdUpperCaseUDPOneByOne(lines, timeout, serverAddress, dc, selector, uniqueKey);
+        return new ClientIdUpperCaseUDPBurst(lines, timeout, serverAddress, dc, selector, uniqueKey);
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
@@ -149,6 +147,13 @@ public class ClientIdUpperCaseUDPOneByOne {
         return state == State.FINISHED;
     }
 
+    private void fillSendBuffer() {
+        sendBuffer.clear();
+        sendBuffer.putLong(currentLine);
+        sendBuffer.put(UTF8.encode(lines.get(Math.toIntExact(currentLine))));
+        sendBuffer.flip();
+    }
+
     /**
      * Performs the receptions of packets
      *
@@ -158,28 +163,23 @@ public class ClientIdUpperCaseUDPOneByOne {
     private void doRead() throws IOException {
         receiveBuffer.clear();
         var sender = dc.receive(receiveBuffer);
-        if (sender == null) {
+        if (null == sender) {
             logger.info("Selector lied, we have no data in the system buffer");
             return;
         }
         receiveBuffer.flip();
         var id = receiveBuffer.getLong();
-        if (id != currentLine) {
+        if (id < 0 || id >= lines.size()) {
             return;
         }
-        upperCaseLines.add(Math.toIntExact(currentLine), UTF8.decode(receiveBuffer).toString());
-        currentLine++;
-        if (currentLine == lines.size()) {
+        logger.info("id = " + id);
+        logger.info("upperCaseLines.size() = " + upperCaseLines.size());
+        upperCaseLines.set(Math.toIntExact(id), UTF8.decode(receiveBuffer).toString());
+        responsesLog.setReceive(id);
+        if (responsesLog.allResponsesAreReceived()) {
             state = State.FINISHED;
             logger.info("Processing finished");
-            return;
         }
-        // Prepare sendBuffer for next send
-        sendBuffer.clear();
-        sendBuffer.putLong(currentLine);
-        sendBuffer.put(UTF8.encode(lines.get(Math.toIntExact(currentLine))));
-        sendBuffer.flip();
-        state = State.SENDING;
     }
 
     /**
@@ -189,17 +189,50 @@ public class ClientIdUpperCaseUDPOneByOne {
      */
 
     private void doWrite() throws IOException {
+
+        fillSendBuffer();
         dc.send(sendBuffer, serverAddress);
         if (sendBuffer.hasRemaining()) {
-            logger.info("Message don't effect send");
+            logger.info("Message don't effect send.");
             return;
         }
-        lastSend = System.currentTimeMillis();
-        state = State.RECEIVING;
-        sendBuffer.flip(); // To guarantee the invariant that the bufferSender is in read mode
+
+        currentLine++;
+        if (currentLine >= lines.size()) {
+            lastSend = System.currentTimeMillis();
+            state = State.RECEIVING;
+            currentLine = 0; // for next burst
+        }
+
+        //sendBuffer.flip(); // To guarantee the invariant that the bufferSender is in read mode
     }
 
     private enum State {
         SENDING, RECEIVING, FINISHED
+    }
+
+    private static class ResponsesLog {
+        //Class handling the information about missing lines
+
+        private final BitSet bitSet;
+        private final int size;
+        private int count = 0;
+
+        public ResponsesLog(int nbLines) {
+            size = nbLines;
+            bitSet = new BitSet(size);
+        }
+
+        public void setReceive(long position) {
+            Objects.checkIndex(position, size);
+            if (!bitSet.get(Math.toIntExact(position))) {
+                bitSet.set(Math.toIntExact(position));
+                count++;
+            }
+        }
+
+        public boolean allResponsesAreReceived() {
+            return count == size;
+        }
     }
 }
