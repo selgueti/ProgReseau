@@ -11,7 +11,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
@@ -25,7 +24,7 @@ public class ClientIdUpperCaseUDPBurst {
     private static final Charset UTF8 = StandardCharsets.UTF_8;
     private static final int BUFFER_SIZE = 1024;
     private final List<String> lines;
-    private final ArrayList<String> upperCaseLines = new ArrayList<>();
+    private final String[] upperCaseLines;
     private final long timeout;
     private final InetSocketAddress serverAddress;
     private final DatagramChannel dc;
@@ -38,6 +37,7 @@ public class ClientIdUpperCaseUDPBurst {
     private State state;
     private long lastSend = 0L;
     private long currentLine = 0;
+
     private ClientIdUpperCaseUDPBurst(List<String> lines, long timeout, InetSocketAddress serverAddress,
                                       DatagramChannel dc, Selector selector, SelectionKey uniqueKey) {
         this.lines = lines;
@@ -48,6 +48,8 @@ public class ClientIdUpperCaseUDPBurst {
         this.uniqueKey = uniqueKey;
         this.state = State.SENDING;
         this.responsesLog = new ResponsesLog(lines.size());
+        this.upperCaseLines = new String[lines.size()];
+        fillSendBuffer();
     }
 
     private static void usage() {
@@ -96,7 +98,7 @@ public class ClientIdUpperCaseUDPBurst {
                     throw tunneled.getCause();
                 }
             }
-            return upperCaseLines;
+            return List.of(upperCaseLines);
         } finally {
             dc.close();
         }
@@ -172,9 +174,7 @@ public class ClientIdUpperCaseUDPBurst {
         if (id < 0 || id >= lines.size()) {
             return;
         }
-        logger.info("id = " + id);
-        logger.info("upperCaseLines.size() = " + upperCaseLines.size());
-        upperCaseLines.set(Math.toIntExact(id), UTF8.decode(receiveBuffer).toString());
+        upperCaseLines[Math.toIntExact(id)] = UTF8.decode(receiveBuffer).toString();
         responsesLog.setReceive(id);
         if (responsesLog.allResponsesAreReceived()) {
             state = State.FINISHED;
@@ -189,22 +189,18 @@ public class ClientIdUpperCaseUDPBurst {
      */
 
     private void doWrite() throws IOException {
-
-        fillSendBuffer();
+        fillSendBuffer(); // TODO do not recreate the buffer if sending failed
         dc.send(sendBuffer, serverAddress);
         if (sendBuffer.hasRemaining()) {
             logger.info("Message don't effect send.");
             return;
         }
-
         currentLine++;
         if (currentLine >= lines.size()) {
             lastSend = System.currentTimeMillis();
             state = State.RECEIVING;
             currentLine = 0; // for next burst
         }
-
-        //sendBuffer.flip(); // To guarantee the invariant that the bufferSender is in read mode
     }
 
     private enum State {
