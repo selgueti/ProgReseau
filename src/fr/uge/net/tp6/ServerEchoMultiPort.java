@@ -82,7 +82,7 @@ public class ServerEchoMultiPort {
         var buffer = context.buffer;
         buffer.clear();
         context.sender = dc.receive(buffer);
-        if (null == context.sender) {
+        if (context.sender == null) {
             return;
         }
         buffer.flip();
