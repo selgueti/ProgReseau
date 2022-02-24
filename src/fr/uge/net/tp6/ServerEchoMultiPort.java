@@ -13,7 +13,7 @@ import java.util.stream.IntStream;
 
 public class ServerEchoMultiPort {
 
-    private static final Logger logger = Logger.getLogger(ServerEcho.class.getName());
+    private static final Logger logger = Logger.getLogger(ServerEchoMultiPort.class.getName());
     private static final int BUFFER_SIZE = 1024;
     private final Selector selector = Selector.open();
     private final int port1;
@@ -46,24 +46,23 @@ public class ServerEchoMultiPort {
             return;
         }
         if (port1 > port2) {
-            System.out.println("Please give a correct range of socket");
+            System.out.println("Please give a correct range of port");
             return;
         }
         ServerEchoMultiPort.createServerEchoMultiPort(port1, port2).serve();
     }
 
     private void bindAllPort() {
-        IntStream.range(port1, port2 + 1)
-                .forEach(i -> {
-                    try {
-                        var sender = new InetSocketAddress(i);
-                        var dc = DatagramChannel.open().bind(sender);
-                        dc.configureBlocking(false);
-                        dc.register(selector, SelectionKey.OP_READ, new Context());
-                    } catch (IOException e) {
-                        logger.warning("Port " + i + "is already used");
-                    }
-                });
+        IntStream.range(port1, port2 + 1).forEach(i -> {
+            try {
+                var sender = new InetSocketAddress(i);
+                var dc = DatagramChannel.open().bind(sender);
+                dc.configureBlocking(false);
+                dc.register(selector, SelectionKey.OP_READ, new Context());
+            } catch (IOException e) {
+                logger.warning("Port " + i + "is already used");
+            }
+        });
     }
 
     public void serve() throws IOException {
