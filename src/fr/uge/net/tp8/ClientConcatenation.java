@@ -26,10 +26,6 @@ public class ClientConcatenation {
         var stringList = new ArrayList<String>();
         while(scanner.hasNext()){
             var string = scanner.next();
-            if(string.equals("")){
-                break;
-            }
-//            System.out.println(string);
             stringList.add(string);
         }
         return stringList;
