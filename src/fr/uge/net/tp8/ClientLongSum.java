@@ -36,18 +36,15 @@ public class ClientLongSum {
         var sizeBuffer = Long.BYTES;
         ByteBuffer receiveBuffer = ByteBuffer.allocate(sizeBuffer);
         sendBuffer.putInt(list.size());
-        list.forEach(ll -> sendBuffer.putLong(ll));
+        list.forEach(sendBuffer::putLong);
         sendBuffer.flip();
         sc.write(sendBuffer);
 
-        while(readFully(sc, receiveBuffer)){
-            sizeBuffer *= 2;
-            var tmp = ByteBuffer.allocate(sizeBuffer);
-            receiveBuffer.flip();
-            tmp.put(receiveBuffer);
-            receiveBuffer = tmp;
+        if(!readFully(sc, receiveBuffer)){
+            return Optional.empty();
         }
 
+        receiveBuffer.flip();
         return Optional.of(receiveBuffer.getLong());
     }
 
