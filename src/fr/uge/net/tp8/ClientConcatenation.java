@@ -65,7 +65,7 @@ public class ClientConcatenation {
      * @throws IOException - If some I/O error occurs
      */
     private static Optional<String> requestConcatenationForList(SocketChannel sc, List<String> list) throws IOException {
-        var sizeBuffer = sendRequest(sc, list);
+        sendRequest(sc, list);
         var receiveBuffer = ByteBuffer.allocate(Integer.BYTES);
 
         if (!readFully(sc, receiveBuffer)) {
@@ -73,7 +73,7 @@ public class ClientConcatenation {
             return Optional.empty();
         }
         receiveBuffer.flip();
-        sizeBuffer = receiveBuffer.getInt();
+        var sizeBuffer = receiveBuffer.getInt();
         receiveBuffer = ByteBuffer.allocate(sizeBuffer);
         if (!readFully(sc, receiveBuffer)) {
             logger.info("Connexion closed before processing");
