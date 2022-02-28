@@ -1,23 +1,35 @@
 package fr.uge.net.tp8;
 
+import fr.uge.net.tp5.LongSumPacket;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
 import java.util.logging.Logger;
 
-public class ClientLongSum {
+public class ClientConcatenation {
 
     public static final Logger logger = Logger.getLogger(ClientLongSum.class.getName());
 
-    private static List<Long> randomLongList(int size) {
-        return new Random().longs(size).boxed().toList();
+    /*
+     * Lis le clavier jusqua recontrer la chaine vide ""
+     * Renvoie la liste des chaines sans la dernière chaine vide.
+     */
+    List<String> readClavier(){
+        return null;
     }
 
-    private static boolean checkSum(List<Long> list, long response) {
-        return list.stream().reduce(Long::sum).orElse(0L) == response;
+    /*
+     * Envoie la requête et attend la réponse si le serveur n'a pas fermé la connexion
+     * Renvoie Optional.empty() si le serveur à fermé la connexion, sinon renvoie la concaténation.
+     */
+    private static Optional<String> requestConcatenationForList(SocketChannel sc, List<String> list) throws IOException{
+        return Optional.empty();
     }
+
 
     /**
      * Write all the longs in list in BigEndian on the server and read the long sent
@@ -31,23 +43,21 @@ public class ClientLongSum {
      * @return
      * @throws IOException
      */
-    private static Optional<Long> requestSumForList(SocketChannel sc, List<Long> list) throws IOException {
-        sendRequest(sc, list);
+    private static Optional<Long> requestConcatenationForList(SocketChannel sc, List<Long> list) throws IOException {
+        ByteBuffer sendBuffer = ByteBuffer.allocate(Integer.BYTES + list.size() * Long.BYTES);
         var sizeBuffer = Long.BYTES;
         ByteBuffer receiveBuffer = ByteBuffer.allocate(sizeBuffer);
-        if(!readFully(sc, receiveBuffer)){
-            return Optional.empty();
-        }
-        receiveBuffer.flip();
-        return Optional.of(receiveBuffer.getLong());
-    }
-
-    private static void sendRequest(SocketChannel sc, List<Long> list) throws IOException {
-        ByteBuffer sendBuffer = ByteBuffer.allocate(Integer.BYTES + list.size() * Long.BYTES);
         sendBuffer.putInt(list.size());
         list.forEach(sendBuffer::putLong);
         sendBuffer.flip();
         sc.write(sendBuffer);
+
+        if(!readFully(sc, receiveBuffer)){
+            return Optional.empty();
+        }
+
+        receiveBuffer.flip();
+        return Optional.of(receiveBuffer.getLong());
     }
 
     /**
