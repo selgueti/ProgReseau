@@ -39,7 +39,7 @@ public class ClientConcatenation {
      * @param list - List<String> list of string to be concatenated
      * @throws IOException - If some I/O error occurs
      */
-    private static int sendRequest(SocketChannel sc, List<String> list) throws IOException {
+    private static void sendRequest(SocketChannel sc, List<String> list) throws IOException {
         int sizeBuffer = (list.size() + 1) * Integer.BYTES;
         var bufferList = list.stream().map(UTF8::encode).toList();
         for (var bb : bufferList) {
@@ -53,7 +53,6 @@ public class ClientConcatenation {
         });
         sendBuffer.flip();
         sc.write(sendBuffer);
-        return sizeBuffer - (list.size() + 1) * Integer.BYTES;
     }
 
     /**
