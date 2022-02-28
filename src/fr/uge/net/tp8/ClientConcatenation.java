@@ -19,12 +19,13 @@ public class ClientConcatenation {
 
     /**
      * Reads keyboard until reading the empty string
+     *
      * @return a list of strings without the last empty string
      */
     private static List<String> readClavier() {
         Scanner scanner = new Scanner(System.in);
         var stringList = new ArrayList<String>();
-        while(scanner.hasNext()){
+        while (scanner.hasNext()) {
             var string = scanner.next();
             stringList.add(string);
         }
@@ -33,14 +34,15 @@ public class ClientConcatenation {
 
     /**
      * Sends request
-     * @param sc - SocketChannel which represents the connexion
+     *
+     * @param sc   - SocketChannel which represents the connexion
      * @param list - List<String> list of string to be concatenated
      * @throws IOException - If some I/O error occurs
-     * */
+     */
     private static int sendRequest(SocketChannel sc, List<String> list) throws IOException {
         int sizeBuffer = (list.size() + 1) * Integer.BYTES;
         var bufferList = list.stream().map(UTF8::encode).toList();
-        for (var bb: bufferList) {
+        for (var bb : bufferList) {
             sizeBuffer += bb.remaining();
         }
         ByteBuffer sendBuffer = ByteBuffer.allocate(sizeBuffer);
@@ -56,23 +58,24 @@ public class ClientConcatenation {
 
     /**
      * Sends request and wait the response if server hasn't closed connexion
-     * @param sc - SocketChannel which represents the connexion
+     *
+     * @param sc   - SocketChannel which represents the connexion
      * @param list - List<String> list of string to be concatenated
      * @return Options.empty() if the server has closed connexion, otherwise returns the concatenation
      * @throws IOException - If some I/O error occurs
      */
-    private static Optional<String> requestConcatenationForList(SocketChannel sc, List<String> list) throws IOException{
+    private static Optional<String> requestConcatenationForList(SocketChannel sc, List<String> list) throws IOException {
         var sizeBuffer = sendRequest(sc, list);
         var receiveBuffer = ByteBuffer.allocate(Integer.BYTES);
 
-        if(!readFully(sc, receiveBuffer)){
+        if (!readFully(sc, receiveBuffer)) {
             logger.info("Connexion closed before processing");
             return Optional.empty();
         }
         receiveBuffer.flip();
         sizeBuffer = receiveBuffer.getInt();
         receiveBuffer = ByteBuffer.allocate(sizeBuffer);
-        if(!readFully(sc, receiveBuffer)){
+        if (!readFully(sc, receiveBuffer)) {
             logger.info("Connexion closed before processing");
             return Optional.empty();
         }
@@ -85,14 +88,14 @@ public class ClientConcatenation {
     /**
      * Fill the workspace with the Bytebuffer with bytes read from sc.
      *
-     * @param sc - SocketChannel which represents the connexion
+     * @param sc     - SocketChannel which represents the connexion
      * @param buffer - Buffer to fill
      * @return false if read returned -1 at some point and true otherwise
      * @throws IOException – If some I/O error occurs
      */
     static boolean readFully(SocketChannel sc, ByteBuffer buffer) throws IOException {
-        while(-1 != sc.read(buffer)){
-            if(!buffer.hasRemaining()){
+        while (-1 != sc.read(buffer)) {
+            if (!buffer.hasRemaining()) {
                 return true;
             }
         }
@@ -105,9 +108,9 @@ public class ClientConcatenation {
 
             var stringsList = readClavier();
             var response = requestConcatenationForList(sc, stringsList);
-            if(response.isEmpty()){
+            if (response.isEmpty()) {
                 logger.warning("Connection with server lost.");
-            }else{
+            } else {
                 logger.info("Everything seems ok");
                 System.out.println(response.get());
             }
