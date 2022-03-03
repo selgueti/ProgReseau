@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 import java.util.logging.Logger;
 
 public class ClientLongSum {
@@ -22,7 +24,7 @@ public class ClientLongSum {
     /**
      * Write all the longs in list in BigEndian on the server and read the long sent
      * by the server and returns it
-     *
+     * <p>
      * returns Optional.empty if the protocol is not followed by the server but no
      * IOException is thrown
      *
@@ -35,7 +37,7 @@ public class ClientLongSum {
         sendRequest(sc, list);
         var sizeBuffer = Long.BYTES;
         ByteBuffer receiveBuffer = ByteBuffer.allocate(sizeBuffer);
-        if(!readFully(sc, receiveBuffer)){
+        if (!readFully(sc, receiveBuffer)) {
             return Optional.empty();
         }
         receiveBuffer.flip();
@@ -59,7 +61,7 @@ public class ClientLongSum {
      * @throws IOException
      */
     static boolean readFully(SocketChannel sc, ByteBuffer buffer) throws IOException {
-        while(-1 != sc.read(buffer) && buffer.hasRemaining());
+        while (-1 != sc.read(buffer) && buffer.hasRemaining()) ;
         return !buffer.hasRemaining();
     }
 

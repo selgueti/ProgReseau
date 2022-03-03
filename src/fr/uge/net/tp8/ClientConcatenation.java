@@ -27,7 +27,7 @@ public class ClientConcatenation {
         var stringList = new ArrayList<String>();
         while (scanner.hasNextLine()) {
             var string = scanner.nextLine();
-            if(string.equals("")){
+            if (string.equals("")) {
                 return stringList;
             }
             stringList.add(string);

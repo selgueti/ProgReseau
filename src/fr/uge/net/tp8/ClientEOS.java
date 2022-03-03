@@ -13,9 +13,8 @@ public class ClientEOS {
 
     public static final Charset UTF8_CHARSET = StandardCharsets.UTF_8;
     public static final int BUFFER_SIZE = 1024;
-    private static int sizeBuffer = BUFFER_SIZE;
     public static final Logger logger = Logger.getLogger(ClientEOS.class.getName());
-
+    private static int sizeBuffer = BUFFER_SIZE;
 
     /**
      * This method:
@@ -29,12 +28,12 @@ public class ClientEOS {
      * @param server
      * @param bufferSize
      * @return the UTF8 string corresponding to bufferSize first bytes of server
-     *         response
+     * response
      * @throws IOException
      */
 
     public static String getFixedSizeResponse(String request, SocketAddress server, int bufferSize) throws IOException {
-        try(SocketChannel sc = SocketChannel.open()){
+        try (SocketChannel sc = SocketChannel.open()) {
             sc.connect(server);
             ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
             sc.write(UTF8_CHARSET.encode(request));
@@ -60,12 +59,12 @@ public class ClientEOS {
      */
 
     public static String getUnboundedResponse(String request, SocketAddress server) throws IOException {
-        try(SocketChannel sc = SocketChannel.open()){
+        try (SocketChannel sc = SocketChannel.open()) {
             sc.connect(server);
             ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
             sc.write(UTF8_CHARSET.encode(request));
             sc.shutdownOutput();
-            while(readFully(sc, buffer)){
+            while (readFully(sc, buffer)) {
                 sizeBuffer *= 2;
                 var tmp = ByteBuffer.allocate(sizeBuffer);
                 buffer.flip();
@@ -86,7 +85,7 @@ public class ClientEOS {
      * @throws IOException
      */
     static boolean readFully(SocketChannel sc, ByteBuffer buffer) throws IOException {
-        while(-1 != sc.read(buffer) && buffer.hasRemaining());
+        while (-1 != sc.read(buffer) && buffer.hasRemaining()) ;
         return !buffer.hasRemaining();
     }
 
