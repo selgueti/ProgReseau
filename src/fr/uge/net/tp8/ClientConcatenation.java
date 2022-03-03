@@ -25,8 +25,11 @@ public class ClientConcatenation {
     private static List<String> readClavier() {
         Scanner scanner = new Scanner(System.in);
         var stringList = new ArrayList<String>();
-        while (scanner.hasNext()) {
-            var string = scanner.next();
+        while (scanner.hasNextLine()) {
+            var string = scanner.nextLine();
+            if(string.equals("")){
+                return stringList;
+            }
             stringList.add(string);
         }
         return stringList;
