@@ -25,8 +25,11 @@ public class ClientConcatenation {
     private static List<String> readClavier() {
         Scanner scanner = new Scanner(System.in);
         var stringList = new ArrayList<String>();
-        while (scanner.hasNext()) {
-            var string = scanner.next();
+        while (scanner.hasNextLine()) {
+            var string = scanner.nextLine();
+            if(string.equals("")){
+                return stringList;
+            }
             stringList.add(string);
         }
         return stringList;
@@ -66,7 +69,6 @@ public class ClientConcatenation {
     private static Optional<String> requestConcatenationForList(SocketChannel sc, List<String> list) throws IOException {
         sendRequest(sc, list);
         var receiveBuffer = ByteBuffer.allocate(Integer.BYTES);
-
         if (!readFully(sc, receiveBuffer)) {
             logger.info("Connexion closed before processing");
             return Optional.empty();
@@ -79,9 +81,7 @@ public class ClientConcatenation {
             return Optional.empty();
         }
         receiveBuffer.flip();
-        var msg = UTF8.decode(receiveBuffer).toString();
-        System.out.println(msg);
-        return Optional.of(msg);
+        return Optional.of(UTF8.decode(receiveBuffer).toString());
     }
 
     /**
@@ -110,7 +110,6 @@ public class ClientConcatenation {
             if (response.isEmpty()) {
                 logger.warning("Connection with server lost.");
             } else {
-                logger.info("Everything seems ok");
                 System.out.println(response.get());
             }
         }
