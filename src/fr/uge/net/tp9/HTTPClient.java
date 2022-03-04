@@ -22,14 +22,14 @@ public class HTTPClient {
     }
 
     public static void main(String[] args) throws IOException {
-        //var hostname = "www.w3.org";
-        var hostname = "www-igm.univ-mlv.fr";
-        var resource = "~carayol";
+        var hostname = "www.u-pem.fr";
+        var resource = "";
         new HTTPClient(hostname, resource).process();
     }
 
     public void process() throws IOException {
         HTTPHeader header = sendRequest();
+        System.out.println(header);
         if (header.getContentLength() != -1) {
             displayResourceWithContentLength(header);
         }else if(header.isChunkedTransfer()){

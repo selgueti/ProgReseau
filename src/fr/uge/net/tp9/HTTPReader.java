@@ -52,7 +52,7 @@ public class HTTPReader {
         System.out.println(header);
         var content = reader.readBytes(header.getContentLength());
         content.flip();
-        //System.out.println(header.getCharset().orElse(StandardCharsets.UTF_8).decode(content));
+        System.out.println(header.getCharset().orElse(StandardCharsets.UTF_8).decode(content));
         sc.close();
 
         buffer = ByteBuffer.allocate(50);
@@ -65,6 +65,7 @@ public class HTTPReader {
         System.out.println(header);
         content = reader.readChunks();
         content.flip();
+        System.out.println("------------------------------------------");
         System.out.println(header.getCharset().orElse(StandardCharsets.UTF_8).decode(content));
         sc.close();
     }
@@ -184,24 +185,26 @@ public class HTTPReader {
 
     public ByteBuffer readChunks() throws IOException {
         int size = 1024;
+        ByteBuffer rnBuffer;
         ByteBuffer returnedBuffer = ByteBuffer.allocate(size);
         var line = readLineCRLF();
         while (!Objects.equals(line, "0")) {
             int sizeChunk = Integer.parseInt(line, 16);
-            if (returnedBuffer.remaining() < sizeChunk) {
+            var chunk = readBytes(sizeChunk).flip();
+            rnBuffer = readBytes(2).flip(); // To read \r\n
+            if(rnBuffer.get() != '\r' && rnBuffer.get() != '\n'){
+                throw new HTTPException("Chunk malformed !");
+            }
+            while (returnedBuffer.remaining() < chunk.remaining()) {
                 size *= 2;
                 var tmpBuffer = ByteBuffer.allocate(size);
                 returnedBuffer.flip();
                 tmpBuffer.put(returnedBuffer);
                 returnedBuffer = tmpBuffer;
             }
-            var chunk = readBytes(sizeChunk);
-            chunk.flip();
-            readBytes(2);
             returnedBuffer.put(chunk);
             line = readLineCRLF();
         }
-        readBytes(2);
         return returnedBuffer;
     }
 }
