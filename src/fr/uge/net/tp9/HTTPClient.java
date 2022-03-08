@@ -2,6 +2,7 @@ package fr.uge.net.tp9;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
@@ -22,15 +23,22 @@ public class HTTPClient {
     }
 
     public static void main(String[] args) throws IOException {
-        var hostname = "www.u-pem.fr";
-        var resource = "";
+        var hostname = "www-igm.univ-mlv.fr";
+        var resource = "/~carayol/redirect.php";
         new HTTPClient(hostname, resource).process();
     }
 
     public void process() throws IOException {
         HTTPHeader header = sendRequest();
         System.out.println(header);
-        if (header.getContentLength() != -1) {
+        if((header.getCode() == 301 || header.getCode() == 302 ) && header.getFields().containsKey("location")){
+            var url = new URL(header.getFields().get("location"));
+            var host = url.getHost();
+            var resource = url.getPath();
+            System.out.println("CODE 301/302... but you can retrive the resource at " + host + resource);
+            new HTTPClient(host, resource).process();
+        }
+        else if (header.getContentLength() != -1) {
             displayResourceWithContentLength(header);
         }else if(header.isChunkedTransfer()){
             displayResourceChunked(header);
