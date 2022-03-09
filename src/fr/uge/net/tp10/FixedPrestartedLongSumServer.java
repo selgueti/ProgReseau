@@ -4,18 +4,45 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.util.concurrent.Semaphore;
+import java.nio.channels.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 public class FixedPrestartedLongSumServer {
 
     private static final Logger logger = Logger.getLogger(FixedPrestartedLongSumServer.class.getName());
     private final ServerSocketChannel serverSocketChannel;
     private final int maxClient = 20;
-    private final Semaphore semaphore = new Semaphore(maxClient);
+
+    private Runnable createRunnable() {
+        return  () -> {
+            SocketChannel client = null;
+            while (!Thread.interrupted()) {
+                try {
+                    client = serverSocketChannel.accept();
+                    logger.info("Connection accepted from " + client.getRemoteAddress());
+                    serve(client);
+                }
+                /* catch(ClosedByInterruptException e){
+                    logger.info("Chanel is closed " + e.getCause());
+                    return;
+                }*/
+                catch (AsynchronousCloseException e) {
+                    logger.info("Chanel is closed" + e.getCause());
+                    return;
+                } catch (ClosedChannelException e) {
+                    logger.info("Chanel is closed" + e.getCause());
+                    return;
+                } catch (IOException ioe) {
+                    logger.log(Level.SEVERE, "Connection terminated with client by IOException", ioe.getCause());
+                    return;
+                }finally {
+                    silentlyClose(client);
+                }
+            }
+        };
+    };
 
     public FixedPrestartedLongSumServer(int port) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
@@ -28,24 +55,11 @@ public class FixedPrestartedLongSumServer {
      *
      * @throws IOException
      */
-
-    public void launch() throws IOException, InterruptedException {
+    public void launch() {
         logger.info("Server started");
-        while (!Thread.interrupted()) {
-            semaphore.acquire();
-            SocketChannel client = serverSocketChannel.accept();
-            new Thread( ()-> {
-                try {
-                    logger.info("Connection accepted from " + client.getRemoteAddress());
-                    serve(client);
-                } catch (IOException ioe) {
-                    logger.log(Level.SEVERE, "Connection terminated with client by IOException", ioe.getCause());
-                } finally {
-                    semaphore.release();
-                    silentlyClose(client);
-                }
-            }).start();
-        }
+        IntStream.range(0, maxClient)
+                .mapToObj(i -> new Thread(this.createRunnable()))
+                .forEach(Thread::start);
     }
 
     /**
@@ -85,7 +99,6 @@ public class FixedPrestartedLongSumServer {
      *
      * @param sc
      */
-
     private void silentlyClose(Closeable sc) {
         if (sc != null) {
             try {
