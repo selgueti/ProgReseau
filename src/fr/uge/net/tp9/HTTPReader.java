@@ -95,8 +95,8 @@ public class HTTPReader {
                     if (last == '\n') {
                         return sb.toString();
                     } else {
-                        /* Don't forget to add \t and the last read byte */
-                        sb.append('\r');
+                        /* Don't forget to add \r and the last read byte */
+                        sb.append("\r");
                         sb.append(last);
                     }
                 }
@@ -191,8 +191,10 @@ public class HTTPReader {
         while (!Objects.equals(line, "0")) {
             int sizeChunk = Integer.parseInt(line, 16);
             var chunk = readBytes(sizeChunk).flip();
-            rnBuffer = readBytes(2).flip(); // To read \r\n
-            if(rnBuffer.get() != '\r' && rnBuffer.get() != '\n'){
+
+            String crlf  = readLineCRLF();
+            //rnBuffer = readBytes(2).flip(); // To read \r\n
+            if(!crlf.equals("\r\n")){
                 throw new HTTPException("Chunk malformed !");
             }
             while (returnedBuffer.remaining() < chunk.remaining()) {
