@@ -13,9 +13,9 @@ public class FixedPrestartedLongSumServer {
 
     private static final Logger logger = Logger.getLogger(FixedPrestartedLongSumServer.class.getName());
     private final ServerSocketChannel serverSocketChannel;
-    private final int maxClient = 20;
+    private final int maxClient = 2;
 
-    private Runnable createRunnable() {
+    private Runnable serverInstructions() {
         return  () -> {
             SocketChannel client = null;
             while (!Thread.interrupted()) {
@@ -58,7 +58,7 @@ public class FixedPrestartedLongSumServer {
     public void launch() {
         logger.info("Server started");
         IntStream.range(0, maxClient)
-                .mapToObj(i -> new Thread(this.createRunnable()))
+                .mapToObj(i -> new Thread(this.serverInstructions()))
                 .forEach(Thread::start);
     }
 

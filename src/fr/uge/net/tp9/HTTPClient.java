@@ -43,7 +43,7 @@ public class HTTPClient {
         }else if(header.isChunkedTransfer()){
             displayResourceChunked(header);
         }else{
-            System.out.println("Header hasn't content length");
+            System.out.println("Header hasn't content length and is not chunked transfer ...");
         }
         sc.close();
     }
