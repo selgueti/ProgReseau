@@ -19,30 +19,24 @@ public class FixedPrestartedLongSumServer {
         return  () -> {
             SocketChannel client = null;
             while (!Thread.interrupted()) {
-                try {
+                try{
                     client = serverSocketChannel.accept();
+                }catch (IOException ioe){
+                    logger.log(Level.SEVERE, "Connection terminated with client by IOException", ioe.getCause());
+                    return;
+                }
+
+                try {
                     logger.info("Connection accepted from " + client.getRemoteAddress());
                     serve(client);
                 }
-                /* catch(ClosedByInterruptException e){
-                    logger.info("Chanel is closed " + e.getCause());
-                    return;
-                }*/
-                catch (AsynchronousCloseException e) {
-                    logger.info("Chanel is closed" + e.getCause());
-                    return;
-                } catch (ClosedChannelException e) {
-                    logger.info("Chanel is closed" + e.getCause());
-                    return;
-                } catch (IOException ioe) {
-                    logger.log(Level.SEVERE, "Connection terminated with client by IOException", ioe.getCause());
-                    return;
+                catch (IOException ioe) {
                 }finally {
                     silentlyClose(client);
                 }
             }
         };
-    };
+    }
 
     public FixedPrestartedLongSumServer(int port) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
@@ -52,8 +46,6 @@ public class FixedPrestartedLongSumServer {
 
     /**
      * Iterative server main loop
-     *
-     * @throws IOException
      */
     public void launch() {
         logger.info("Server started");
@@ -65,8 +57,8 @@ public class FixedPrestartedLongSumServer {
     /**
      * Treat the connection sc applying the protocol. All IOException are thrown
      *
-     * @param sc
-     * @throws IOException
+     * @param sc -
+     * @throws IOException -
      */
     private void serve(SocketChannel sc) throws IOException {
         ByteBuffer nbOperandBuffer = ByteBuffer.allocate(Integer.BYTES);
@@ -97,7 +89,7 @@ public class FixedPrestartedLongSumServer {
     /**
      * Close a SocketChannel while ignoring IOException
      *
-     * @param sc
+     * @param sc -
      */
     private void silentlyClose(Closeable sc) {
         if (sc != null) {
