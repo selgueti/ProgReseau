@@ -9,6 +9,7 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 import java.util.logging.Level;
@@ -22,6 +23,8 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
     private final int maxClient = 2;
     private final ThreadData[] threadsData = new ThreadData[maxClient];
     private final int timeout = 2000;
+    private final List<Thread> workers;
+    private final Thread manager;
 
     public FixedPrestartedConcurrentLongSumServerWithTimeout(int port) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
@@ -30,6 +33,13 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
         for (int i = 0; i < maxClient; i++) {
             threadsData[i] = new ThreadData();
         }
+        workers = IntStream.range(0, maxClient)
+                .mapToObj(i -> new Thread(this.serverInstructions(i))).toList();
+        for (int i = 0; i < workers.size(); i++) {
+            workers.get(i).setName("Worker " + i);
+        }
+        manager = new Thread(this.threadControl());
+        manager.setName("Manager");
     }
 
     static boolean readFully(SocketChannel sc, ByteBuffer buffer) throws IOException {
@@ -42,28 +52,62 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
         return true;
     }
 
+    private long actualClientConnected(){
+        return Arrays.stream(threadsData).filter(ThreadData::isAlreadyUsed).count();
+    }
+
+    private void processInfo(){
+        logger.info("There are currently " + actualClientConnected() +  " clients connected to the server");
+    }
+
+    private void processShutdown() throws InterruptedException {
+        logger.info("shutdown...");
+        try {
+            serverSocketChannel.close();
+            //wait that all client will be served, and then shutdown now
+            while(actualClientConnected() != 0){
+                Thread.sleep(1000);
+            }
+            processShutdownNow();
+        } catch (IOException e) {
+            logger.severe("IOESHUTDOWN" + e.getCause());
+            return;
+        }
+    }
+
+    private void processShutdownNow(){
+        logger.info("shutdown now...");
+        workers.forEach(Thread::interrupt);
+        manager.interrupt();
+    }
+
     public static void main(String[] args) throws NumberFormatException, IOException, InterruptedException {
         var server = new FixedPrestartedConcurrentLongSumServerWithTimeout(Integer.parseInt(args[0]));
+        boolean flagShutDown = false;
         server.launch();
-        var scanner = new Scanner(System.in);
-        while (scanner.hasNextLine()){
-            var line = scanner.nextLine();
-            switch(line){
-                case "INFO" : logger.info("info...");break;
-                case "SHUTDOWN" : logger.info("shutdown...");break;
-                case "SHUTDOWNNOW" : logger.info("shutdown now...");break;
-                default : logger.info("Command not found. Available command : INFO, SHUTDOWN, SHUTDOWNNOW");
+        try(var scanner = new Scanner(System.in)){
+            while (!flagShutDown && scanner.hasNextLine()){
+                var line = scanner.nextLine();
+                switch(line){
+                    case "INFO" -> server.processInfo();
+                    case "SHUTDOWN" -> {server.processShutdown(); flagShutDown = true;}
+                    case "SHUTDOWNNOW" -> {server.processShutdownNow(); scanner.close(); flagShutDown = true;}
+                    default -> logger.info("Command unknown. Available command : INFO, SHUTDOWN, SHUTDOWNNOW");
+                }
             }
         }
     }
 
     private Runnable serverInstructions(int i) {
         return () -> {
-            SocketChannel client = null;
+            SocketChannel client;
             while (!Thread.interrupted()) {
                 try {
                     client = serverSocketChannel.accept();
-                } catch (IOException ioe) {
+                } catch(AsynchronousCloseException e){
+                    //logger.info("Preparation to close the server, new connexion is not allowed");
+                    return;
+                } catch(IOException ioe) {
                     logger.log(Level.SEVERE, "Connection terminated with client by IOException", ioe.getCause());
                     return;
                 }
@@ -105,10 +149,8 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
      */
     public void launch() {
         logger.info("Server started");
-        new Thread(this.threadControl()).start();
-        IntStream.range(0, maxClient)
-                .mapToObj(i -> new Thread(this.serverInstructions(i)))
-                .forEach(Thread::start);
+        manager.start();
+        workers.forEach(Thread::start);
     }
 
     /**
@@ -123,6 +165,7 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
             long res = 0;
             nbOperandBuffer.clear();
             if (!readFully(sc, nbOperandBuffer)) {
+                threadData.close();
                 return;
             }
             threadData.tick();
@@ -141,6 +184,7 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
             sc.write(response);
             threadData.tick();
             if (!readStatus) {
+                threadData.close();
                 break;
             }
         }
@@ -165,7 +209,6 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
         private static final Logger logger = Logger.getLogger(ThreadData.class.getName());
         private final Object lock = new Object();
         private SocketChannel sc;
-        //private long lastActivity;
         private int nbTick = 0;
         private boolean isAlreadyUsed = false;
         private ThreadData() {
@@ -188,7 +231,6 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
          */
         public void tick() {
             synchronized (lock) {
-                //lastActivity = System.currentTimeMillis();
                 nbTick = 0;
             }
         }
@@ -198,11 +240,6 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
          */
         public void incrementAndKillIfInactive(int timeoutTick) {
             synchronized (lock) {
-                /*if (System.currentTimeMillis() - lastActivity > timeout && isAlreadyUsed) {
-                    close();
-                    logger.info("Connexion closed because timeout is elapsed");
-                    isAlreadyUsed = false;
-                }*/
                 nbTick++;
                 if(timeoutTick < nbTick && isAlreadyUsed){
                     close();
@@ -223,6 +260,12 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
                 } catch (IOException e) {
                     logger.warning("Connexion  closed " + e.getCause());
                 }
+            }
+        }
+
+        public boolean isAlreadyUsed(){
+            synchronized (lock){
+                return isAlreadyUsed;
             }
         }
     }
