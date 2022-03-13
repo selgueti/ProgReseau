@@ -71,7 +71,6 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
             processShutdownNow();
         } catch (IOException e) {
             logger.severe("IOESHUTDOWN" + e.getCause());
-            return;
         }
     }
 
