@@ -4,10 +4,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousCloseException;
-import java.nio.channels.ClosedChannelException;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -65,10 +62,10 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
         try {
             serverSocketChannel.close();
             //wait that all client will be served, and then shutdown now
-            while(actualClientConnected() != 0){
-                Thread.sleep(1000);
+            /*while(actualClientConnected() != 0){
+                Thread.sleep(timeout);
             }
-            processShutdownNow();
+            processShutdownNow();*/
         } catch (IOException e) {
             logger.severe("IOESHUTDOWN" + e.getCause());
         }
@@ -116,6 +113,9 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
                     threadData.setSocketChannel(client);
                     logger.info("Connection accepted from " + client.getRemoteAddress());
                     serve(client, threadData);
+                }
+                catch(ClosedByInterruptException e){
+                    return;
                 }
                 catch (AsynchronousCloseException e) {
                     // Do nothing
