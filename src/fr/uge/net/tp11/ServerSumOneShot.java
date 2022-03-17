@@ -78,7 +78,7 @@ public class ServerSumOneShot {
         var buffer = (ByteBuffer)key.attachment();
 
         if(sc.read(buffer) == -1){
-            logger.info("Selector lies, no data in buffer system");
+            logger.info("Connexion closed");
             silentlyClose(key);
             return;
         }

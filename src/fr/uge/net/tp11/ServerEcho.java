@@ -27,7 +27,19 @@ public class ServerEcho {
          * The convention is that buff is in write-mode.
          */
         private void updateInterestOps() {
-            // TODO
+            if(closed) {
+                if (buffer.position() == 0) {
+                    silentlyClose();
+                    return;
+                }
+                key.interestOps(SelectionKey.OP_WRITE);
+                return;
+            }
+            switch(buffer.position()){
+                case 0 -> key.interestOps(SelectionKey.OP_READ);
+                case BUFFER_SIZE -> key.interestOps(SelectionKey.OP_WRITE);
+                default -> key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+            }
         }
 
         /**
@@ -39,7 +51,11 @@ public class ServerEcho {
          * @throws IOException
          */
         private void doRead() throws IOException {
-            // TODO
+            if(-1 == sc.read(buffer)){
+                closed = true;
+                logger.info("Connexion closed");
+            }
+            updateInterestOps();
         }
 
         /**
@@ -51,7 +67,10 @@ public class ServerEcho {
          * @throws IOException
          */
         private void doWrite() throws IOException {
-            // TODO
+            buffer.flip(); // need to flip buffer to write data
+            sc.write(buffer);
+            buffer.compact(); // to follow the convention
+            updateInterestOps();
         }
 
         private void silentlyClose() {
@@ -114,7 +133,14 @@ public class ServerEcho {
     }
 
     private void doAccept(SelectionKey key) throws IOException {
-        // TODO
+        var sc = serverSocketChannel.accept();
+        if(sc == null){
+            logger.info("Selector lied, no accept");
+            return;
+        }
+        sc.configureBlocking(false);
+        var selectionKey = sc.register(selector, SelectionKey.OP_READ);
+        selectionKey.attach(new Context(selectionKey));
     }
 
     private void silentlyClose(SelectionKey key) {
