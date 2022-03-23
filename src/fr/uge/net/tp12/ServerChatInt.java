@@ -43,7 +43,9 @@ public class ServerChatInt {
          * @param msg
          */
         public void queueMessage(Integer msg) {
-            // TODO
+            queue.addLast(msg);
+            processOut();
+            updateInterestOps();
         }
 
         /**
@@ -51,7 +53,9 @@ public class ServerChatInt {
          *
          */
         private void processOut() {
-            // TODO
+            while(bufferOut.remaining() >= Integer.BYTES){
+                bufferOut.putInt(queue.peekFirst());
+            }
         }
 
         /**
@@ -153,7 +157,14 @@ public class ServerChatInt {
     }
 
     private void doAccept(SelectionKey key) throws IOException {
-        // TODO
+        var sc = serverSocketChannel.accept();
+        if(sc == null){
+            logger.info("Selector lied, no accept");
+            return;
+        }
+        sc.configureBlocking(false);
+        var selectionKey = sc.register(selector, SelectionKey.OP_READ);
+        selectionKey.attach(new Context(this, selectionKey));
     }
 
     private void silentlyClose(SelectionKey key) {

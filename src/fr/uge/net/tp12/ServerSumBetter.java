@@ -30,16 +30,11 @@ public class ServerSumBetter {
          */
 
         private void process() {
-            if(bufferOut.remaining() < Integer.BYTES){
-                return;
-            }
             bufferIn.flip();
-            if(bufferIn.remaining() < 2 * Integer.BYTES){
-                bufferIn.flip(); // to follow the convention
-                return;
+            while(bufferOut.remaining() >= Integer.BYTES && bufferIn.remaining() >= 2 * Integer.BYTES){
+                bufferOut.putInt(bufferIn.getInt() + bufferIn.getInt());
             }
-            bufferOut.putInt(bufferIn.getInt() + bufferIn.getInt());
-            bufferIn.compact(); // to follow the convention
+            bufferIn.compact();
         }
 
         /**
