@@ -27,7 +27,19 @@ public class ServerEcho {
          * The convention is that buff is in write-mode.
          */
         private void updateInterestOps() {
-            if(closed) {
+            var interesteOps = 0;
+            if(!closed && buffer.hasRemaining()){
+                interesteOps |= SelectionKey.OP_READ;
+            }
+            if(buffer.position() != 0){
+                interesteOps |= SelectionKey.OP_WRITE;
+            }
+            if(interesteOps == 0){
+                silentlyClose();
+                return;
+            }
+            key.interestOps(interesteOps);
+            /*if(closed) {
                 if (buffer.position() == 0) {
                     silentlyClose();
                     return;
@@ -39,7 +51,7 @@ public class ServerEcho {
                 case 0 -> key.interestOps(SelectionKey.OP_READ);
                 case BUFFER_SIZE -> key.interestOps(SelectionKey.OP_WRITE);
                 default -> key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-            }
+            }*/
         }
 
         /**
