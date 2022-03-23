@@ -82,7 +82,7 @@ public class ClientUpperCaseUDPTimeoutRetry {
                 while (response == null) {
                     response = blockingDeque.poll(1000, TimeUnit.MILLISECONDS);
                     if (response == null) {
-                        System.out.println("Server doesn't reply, send back the message...");
+                        System.out.println("Server doesn't reply, send back the text...");
                         bbSend.flip();
                         dc.send(bbSend, server);
                     }

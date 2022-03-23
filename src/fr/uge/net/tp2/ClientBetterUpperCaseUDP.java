@@ -47,15 +47,15 @@ public class ClientBetterUpperCaseUDP {
     }
 
     /**
-     * Creates and returns an Optional containing a String message represented by the ByteBuffer buffer,
+     * Creates and returns an Optional containing a String text represented by the ByteBuffer buffer,
      * encoded in the following representation:
      * - the size (as a Big Indian int) of a charsetName encoded in ASCII<br/>
      * - the bytes encoding this charsetName in ASCII<br/>
-     * - the bytes encoding the message in this charset.<br/>
+     * - the bytes encoding the text in this charset.<br/>
      * The accepted ByteBuffer buffer must be in <strong>write mode</strong>
      * (i.e. need to be flipped before to be used).
      *
-     * @param buffer a ByteBuffer containing the representation of an encoded String message
+     * @param buffer a ByteBuffer containing the representation of an encoded String text
      * @return an Optional containing the String represented by buffer, or an empty Optional if the buffer cannot be decoded
      */
     public static Optional<String> decodeMessage(ByteBuffer buffer) {

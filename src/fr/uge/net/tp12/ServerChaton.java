@@ -5,22 +5,24 @@ import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ServerChatInt {
+public class ServerChaton {
     static private class Context {
         private final SelectionKey key;
         private final SocketChannel sc;
         private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
         private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
-        private final ArrayDeque<Integer> queue = new ArrayDeque<>();
-        private final ServerChatInt server; // we could also have Context as an instance class, which would naturally
+        private final ArrayDeque<Message> queue = new ArrayDeque<>();
+        private final ServerChaton server; // we could also have Context as an instance class, which would naturally
         // give access to ServerChatInt.this
         private boolean closed = false;
+        private final MessageReader messageReader = new MessageReader();
 
-        private Context(ServerChatInt server, SelectionKey key) {
+        private Context(ServerChaton server, SelectionKey key) {
             this.key = key;
             this.sc = (SocketChannel) key.channel();
             this.server = server;
@@ -34,12 +36,21 @@ public class ServerChatInt {
          *
          */
         private void processIn() {
-            bufferIn.flip();
-            while(bufferIn.remaining() >= Integer.BYTES){
-                server.broadcast(bufferIn.getInt());
+            for (;;) {
+                Reader.ProcessStatus status = messageReader.process(bufferIn);
+                switch (status) {
+                    case DONE:
+                        var message = messageReader.get();
+                        server.broadcast(message);
+                        messageReader.reset();
+                        break;
+                    case REFILL:
+                        return;
+                    case ERROR:
+                        silentlyClose();
+                        return;
+                }
             }
-            bufferIn.compact();
-            //bufferIn.clear();
         }
 
         /**
@@ -47,7 +58,7 @@ public class ServerChatInt {
          *
          * @param msg - text to add to the text queue
          */
-        public void queueMessage(Integer msg) {
+        public void queueMessage(Message msg) {
             queue.addLast(msg);
             processOut();
             updateInterestOps();
@@ -59,7 +70,14 @@ public class ServerChatInt {
          */
         private void processOut() {
             while(bufferOut.remaining() >= Integer.BYTES && !queue.isEmpty()){
-                bufferOut.putInt(queue.pollFirst());
+                var message = queue.pollFirst();
+                var login = message.login();
+                var text = message.text();
+                var loginBuffer = StandardCharsets.UTF_8.encode(login);
+                var textBuffer = StandardCharsets.UTF_8.encode(text);
+
+                bufferOut.putInt(loginBuffer.remaining()).put(loginBuffer);
+                bufferOut.putInt(textBuffer.remaining()).put(textBuffer);
             }
         }
 
@@ -131,12 +149,12 @@ public class ServerChatInt {
     }
 
     private static final int BUFFER_SIZE = 1_024;
-    private static final Logger logger = Logger.getLogger(ServerChatInt.class.getName());
+    private static final Logger logger = Logger.getLogger(ServerChaton.class.getName());
 
     private final ServerSocketChannel serverSocketChannel;
     private final Selector selector;
 
-    public ServerChatInt(int port) throws IOException {
+    public ServerChaton(int port) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.bind(new InetSocketAddress(port));
         selector = Selector.open();
@@ -205,7 +223,7 @@ public class ServerChatInt {
      *
      * @param msg - text to add to all connected clients queue
      */
-    private void broadcast(Integer msg) {
+    private void broadcast(Message msg) {
         for (SelectionKey key : selector.keys()) {
             if(key.channel() == serverSocketChannel){
                 continue;
@@ -220,10 +238,10 @@ public class ServerChatInt {
             usage();
             return;
         }
-        new ServerChatInt(Integer.parseInt(args[0])).launch();
+        new ServerChaton(Integer.parseInt(args[0])).launch();
     }
 
     private static void usage() {
-        System.out.println("Usage : ServerChatInt port");
+        System.out.println("Usage : ServerChaton port");
     }
 }

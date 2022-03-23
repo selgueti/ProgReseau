@@ -89,7 +89,7 @@ public class ClientUpperCaseUDPFile {
                 while (response == null) {
                     response = blockingDeque.poll(timeout, TimeUnit.MILLISECONDS);
                     if (response == null) {
-                        System.out.println("Server doesn't reply, send back the message...");
+                        System.out.println("Server doesn't reply, send back the text...");
                         bbSend.flip();
                         dc.send(bbSend, server);
                     }
