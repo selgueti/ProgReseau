@@ -34,13 +34,18 @@ public class ServerChatInt {
          *
          */
         private void processIn() {
-            // TODO
+            bufferIn.flip();
+            while(bufferIn.remaining() >= Integer.BYTES){
+                server.broadcast(bufferIn.getInt());
+            }
+            bufferIn.compact();
+            //bufferIn.clear();
         }
 
         /**
          * Add a message to the message queue, tries to fill bufferOut and updateInterestOps
          *
-         * @param msg
+         * @param msg - message to add to the message queue
          */
         public void queueMessage(Integer msg) {
             queue.addLast(msg);
@@ -53,8 +58,8 @@ public class ServerChatInt {
          *
          */
         private void processOut() {
-            while(bufferOut.remaining() >= Integer.BYTES){
-                bufferOut.putInt(queue.peekFirst());
+            while(bufferOut.remaining() >= Integer.BYTES && !queue.isEmpty()){
+                bufferOut.putInt(queue.pollFirst());
             }
         }
 
@@ -63,12 +68,23 @@ public class ServerChatInt {
          * closed and of both ByteBuffers.
          *
          * The convention is that both buffers are in write-mode before the call to
-         * updateInterestOps and after the call. Also it is assumed that process has
+         * updateInterestOps and after the call. Also, it is assumed that process has
          * been be called just before updateInterestOps.
          */
 
         private void updateInterestOps() {
-            // TODO
+            var interestOps = 0;
+            if(!closed && bufferIn.hasRemaining()){
+                interestOps |= SelectionKey.OP_READ;
+            }
+            if(bufferOut.position() != 0){
+                interestOps |= SelectionKey.OP_WRITE;
+            }
+            if(interestOps == 0){
+                silentlyClose();
+                return;
+            }
+            key.interestOps(interestOps);
         }
 
         private void silentlyClose() {
@@ -85,10 +101,14 @@ public class ServerChatInt {
          * The convention is that both buffers are in write-mode before the call to
          * doRead and after the call
          *
-         * @throws IOException
+         * @throws IOException - if some I/O error occurs
          */
         private void doRead() throws IOException {
-            // TODO
+            if(-1 == sc.read(bufferIn)){
+                closed = true;
+            }
+            processIn();
+            updateInterestOps();
         }
 
         /**
@@ -97,11 +117,15 @@ public class ServerChatInt {
          * The convention is that both buffers are in write-mode before the call to
          * doWrite and after the call
          *
-         * @throws IOException
+         * @throws IOException - if some I/O error occurs
          */
 
         private void doWrite() throws IOException {
-            // TODO
+            bufferOut.flip();
+            sc.write(bufferOut);
+            bufferOut.compact();
+            processOut();
+            updateInterestOps();
         }
 
     }
@@ -168,7 +192,7 @@ public class ServerChatInt {
     }
 
     private void silentlyClose(SelectionKey key) {
-        Channel sc = (Channel) key.channel();
+        Channel sc = key.channel();
         try {
             sc.close();
         } catch (IOException e) {
@@ -179,10 +203,16 @@ public class ServerChatInt {
     /**
      * Add a message to all connected clients queue
      *
-     * @param msg
+     * @param msg - message to add to all connected clients queue
      */
     private void broadcast(Integer msg) {
-        // TODO
+        for (SelectionKey key : selector.keys()) {
+            if(key.channel() == serverSocketChannel){
+                continue;
+            }
+            Context context = (Context) key.attachment(); // Safe Cast
+            context.queueMessage(msg);
+        }
     }
 
     public static void main(String[] args) throws NumberFormatException, IOException {
