@@ -31,6 +31,7 @@ public class StringReader implements Reader<String> {
                 sizeIsSet = true;
             }
             if (size < 0 || size > BUFFER_SIZE) {
+                state = State.ERROR;
                 return ProcessStatus.ERROR;
             }
             while (internalBuffer.hasRemaining() && buffer.hasRemaining() && size != internalBuffer.position()) {
@@ -39,14 +40,12 @@ public class StringReader implements Reader<String> {
         } finally {
             buffer.compact();
         }
-        System.out.println("position = " + internalBuffer.position() + ", size = " + size);
-        if (internalBuffer.position() < size) {
+        if (!sizeIsSet || (internalBuffer.position() < size)) {
             return ProcessStatus.REFILL;
         }
         state = State.DONE;
         internalBuffer.flip();
         value = UTF8.decode(internalBuffer).toString();
-        //internalBuffer.compact(); // maybe clear ?
         internalBuffer.clear();
         return ProcessStatus.DONE;
     }
@@ -66,6 +65,7 @@ public class StringReader implements Reader<String> {
         sizeBuffer.clear();
         size = 0;
         sizeIsSet = false;
+        value = "";
     }
 
     private enum State {
