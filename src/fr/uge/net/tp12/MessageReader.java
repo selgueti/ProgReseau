@@ -1,7 +1,6 @@
 package fr.uge.net.tp12;
 
 import java.nio.ByteBuffer;
-import java.util.Objects;
 
 public class MessageReader implements Reader<Message> {
 
