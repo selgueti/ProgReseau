@@ -61,11 +61,6 @@ public class FixedPrestartedConcurrentLongSumServerWithTimeout {
         logger.info("shutdown...");
         try {
             serverSocketChannel.close();
-            //wait that all client will be served, and then shutdown now
-            /*while(actualClientConnected() != 0){
-                Thread.sleep(timeout);
-            }
-            processShutdownNow();*/
         } catch (IOException e) {
             logger.severe("IOESHUTDOWN" + e.getCause());
         }

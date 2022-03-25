@@ -21,7 +21,7 @@ public class ClientChat {
     private final InetSocketAddress serverAddress;
     private final String login;
     private final Thread console;
-    private final MessageController messageController = new MessageController();
+    private final StringController stringController = new StringController();
     private Context uniqueContext;
 
     public ClientChat(String login, InetSocketAddress serverAddress) throws IOException {
@@ -65,7 +65,7 @@ public class ClientChat {
      * @throws InterruptedException - if thread has been interrupted
      */
     private void sendCommand(String msg) throws InterruptedException {
-        messageController.add(new Message(login, msg));
+        stringController.add(msg);
         selector.wakeup();
         // Cause the exception if the main thread has requested the interrupt
         if (Thread.interrupted()) {
@@ -77,8 +77,8 @@ public class ClientChat {
      * Processes the command from the messageController
      */
     private void processCommands() {
-        while (messageController.hasMessages()) {
-            uniqueContext.queueMessage(messageController.poll());
+        while (stringController.hasMessages()) {
+            uniqueContext.queueMessage(new Message(login, stringController.poll()));
         }
     }
 

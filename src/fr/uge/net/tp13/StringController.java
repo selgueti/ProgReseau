@@ -4,22 +4,22 @@ import java.util.ArrayDeque;
 import java.util.Queue;
 
 /**
- * Thread safe class to control message input
+ * Thread safe class to control string input
  */
-public class MessageController {
-    private final Queue<Message> messagesList = new ArrayDeque<>(8);
+public class StringController {
+    private final Queue<String> stringQueue = new ArrayDeque<>(8);
     private int pendingMessage = 0;
 
-    public void add(Message msg) {
-        synchronized (messagesList) {
-            messagesList.add(msg);
+    public void add(String msg) {
+        synchronized (stringQueue) {
+            stringQueue.add(msg);
             pendingMessage++;
         }
     }
 
-    public Message poll() {
-        synchronized (messagesList) {
-            Message msg = messagesList.poll();
+    public String poll() {
+        synchronized (stringQueue) {
+            String msg = stringQueue.poll();
             if (msg == null) {
                 throw new AssertionError("the selector should not have been woken up");
             }
@@ -29,7 +29,7 @@ public class MessageController {
     }
 
     public boolean hasMessages() {
-        synchronized (messagesList) {
+        synchronized (stringQueue) {
             return pendingMessage > 0;
         }
     }
