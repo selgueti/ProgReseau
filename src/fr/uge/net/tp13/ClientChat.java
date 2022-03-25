@@ -62,18 +62,20 @@ public class ClientChat {
      * Send instructions to the selector via messageController and wake it up
      *
      * @param msg - msg
-     * @throws InterruptedException - if interrupted while waiting
+     * @throws InterruptedException - if thread has been interrupted
      */
-
     private void sendCommand(String msg) throws InterruptedException {
         messageController.add(new Message(login, msg));
         selector.wakeup();
+        // Cause the exception if the main thread has requested the interrupt
+        if (Thread.interrupted()) {
+            throw new InterruptedException("Interrupted by main thread");
+        }
     }
 
     /**
      * Processes the command from the messageController
      */
-
     private void processCommands() {
         while (messageController.hasMessages()) {
             uniqueContext.queueMessage(messageController.poll());
@@ -94,6 +96,8 @@ public class ClientChat {
                 selector.select(this::treatKey);
                 processCommands();
             } catch (UncheckedIOException tunneled) {
+                console.interrupt();
+                Thread.currentThread().interrupt();
                 throw tunneled.getCause();
             }
         }
@@ -104,15 +108,35 @@ public class ClientChat {
             if (key.isValid() && key.isConnectable()) {
                 uniqueContext.doConnect();
             }
+        } catch (IOException ioe) {
+            // lambda call in select requires to tunnel IOException
+            logger.warning(serverAddress.getHostString() + ":" + serverAddress.getPort() + " is unreachable");
+            silentlyClose(key);
+            console.interrupt();
+            Thread.currentThread().interrupt();
+            //throw new UncheckedIOException(ioe);
+        }
+
+        try {
             if (key.isValid() && key.isWritable()) {
                 uniqueContext.doWrite();
             }
+        } catch (IOException ioe) {
+            // lambda call in select requires to tunnel IOException
+            logger.info("I/O error while sending a message");
+            //silentlyClose(key);
+            //throw new UncheckedIOException(ioe);
+        }
+
+        try {
             if (key.isValid() && key.isReadable()) {
                 uniqueContext.doRead();
             }
         } catch (IOException ioe) {
             // lambda call in select requires to tunnel IOException
-            throw new UncheckedIOException(ioe);
+            logger.info("I/O error while receiving a message");
+            //silentlyClose(key);
+            //throw new UncheckedIOException(ioe);
         }
     }
 
