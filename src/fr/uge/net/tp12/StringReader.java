@@ -16,7 +16,6 @@ public class StringReader implements Reader<String> {
 
     private void fillInternalBufferFromBuffer(ByteBuffer buffer) {
         if (internalBuffer.position() >= size) {
-            System.out.println("Buffer is already fill");
             return;
         }
         buffer.flip(); //was in WRITE, needs to be READ.
