@@ -4,12 +4,9 @@ import java.nio.ByteBuffer;
 
 public class IntReader implements Reader<Integer> {
 
-    private enum State {
-        DONE, WAITING, ERROR
-    };
-
-    private State state = State.WAITING;
     private final ByteBuffer internalBuffer = ByteBuffer.allocate(Integer.BYTES); // write-mode
+    
+    private State state = State.WAITING;
     private int value;
 
     @Override
@@ -51,5 +48,9 @@ public class IntReader implements Reader<Integer> {
     public void reset() {
         state = State.WAITING;
         internalBuffer.clear();
+    }
+
+    private enum State {
+        DONE, WAITING, ERROR
     }
 }

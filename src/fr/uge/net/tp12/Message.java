@@ -11,36 +11,35 @@ public class Message {
     private ByteBuffer internalBuffer = null;
 
 
-    public Message(String login, String text){
+    public Message(String login, String text) {
         Objects.requireNonNull(login);
         Objects.requireNonNull(text);
         this.login = login;
         this.text = text;
     }
 
-    public Message(Message msg){
-        //Objects.requireNonNull(msg);
+    public Message(Message msg) {
         this(msg.login, msg.text);
     }
+
     /**
      * The convention is that internalBuffer is in write-mode before the call to setBuffer and
      * after the call
-     * */
-    private void setBuffer(){
+     */
+    private void setBuffer() {
         var UTF8login = StandardCharsets.UTF_8.encode(login);
         var UTF8Content = StandardCharsets.UTF_8.encode(text);
         internalBuffer = ByteBuffer.allocate(UTF8login.remaining() + UTF8Content.remaining() + (Integer.BYTES * 2));
         internalBuffer.putInt(UTF8login.limit()).put(UTF8login);
         internalBuffer.putInt(UTF8Content.limit()).put(UTF8Content);
-        return;
     }
 
     /**
      * The convention is that buffer is in write-mode before the call to fillBuffer and
      * after the call
-     * */
-    public void fillBuffer(ByteBuffer buffer){
-        if(internalBuffer == null){
+     */
+    public void fillBuffer(ByteBuffer buffer) {
+        if (internalBuffer == null) {
             setBuffer();
         }
         if (internalBuffer.position() == 0) {
@@ -61,8 +60,8 @@ public class Message {
      * Return true if message is completely send, otherwise false
      * The convention is that internalBuffer is in write-mode before the call to isDone and
      * after the call
-     * */
-    public boolean isDone(){
+     */
+    public boolean isDone() {
         return internalBuffer.position() == 0;
     }
 }

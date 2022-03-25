@@ -4,58 +4,44 @@ import java.nio.ByteBuffer;
 
 public class MessageReader implements Reader<Message> {
 
-    private enum State {
-        DONE, WAITING, ERROR
-    }
-
-    private final StringReader loginReader = new StringReader();
-    private final StringReader textReader = new StringReader();
-    private State state = State.WAITING;
-    private boolean loginRead = false;
+    private final StringReader stringReader = new StringReader();
+    private State state = State.WAITING_LOGIN;
     private String login;
-    private String message;
-
+    private String text;
 
     @Override
     public ProcessStatus process(ByteBuffer bb) {
-        ProcessStatus status = ProcessStatus.ERROR; // Warning: Initialized by default to a random value, just for compiling...
-        if (!loginRead) {
-            switch (loginReader.process(bb)) {
-                case DONE -> {
-                    loginRead = true;
-                    login = loginReader.get();
-                    status = ProcessStatus.REFILL;
-                    break;
-                }
+        if (state == State.WAITING_LOGIN) {
+            switch (stringReader.process(bb)) {
                 case REFILL -> {
-                    status =  ProcessStatus.REFILL;
-                    break;
+                    return ProcessStatus.REFILL;
                 }
                 case ERROR -> {
-                    status = ProcessStatus.ERROR;
                     state = State.ERROR;
-                    break;
+                    return ProcessStatus.ERROR;
+                }
+                case DONE -> {
+                    login = stringReader.get();
+                    state = State.WAITING_TEXT;
                 }
             }
         }
-        switch (textReader.process(bb)) {
-            case DONE -> {
-                message = textReader.get();
-                status = ProcessStatus.DONE;
-                state = State.DONE;
-                break;
-            }
+
+        stringReader.reset();
+        switch (stringReader.process(bb)) {
             case REFILL -> {
-                status = ProcessStatus.REFILL;
-                break;
+                return ProcessStatus.REFILL;
             }
             case ERROR -> {
-                status = ProcessStatus.ERROR;
                 state = State.ERROR;
-                break;
+                return ProcessStatus.ERROR;
+            }
+            case DONE -> {
+                text = stringReader.get();
+                state = State.DONE;
             }
         }
-        return status;
+        return ProcessStatus.DONE;
     }
 
     @Override
@@ -63,16 +49,18 @@ public class MessageReader implements Reader<Message> {
         if (state != State.DONE) {
             throw new IllegalStateException();
         }
-        return new Message(login, message);
+        return new Message(login, text);
     }
 
     @Override
     public void reset() {
-        loginReader.reset();
-        textReader.reset();
-        state = State.WAITING;
-        loginRead = false;
+        stringReader.reset();
+        state = State.WAITING_LOGIN;
         login = null;
-        message = null;
+        text = null;
+    }
+
+    private enum State {
+        DONE, WAITING_LOGIN, WAITING_TEXT, ERROR
     }
 }

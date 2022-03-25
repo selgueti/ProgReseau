@@ -5,7 +5,6 @@ import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.logging.Level;
@@ -16,6 +15,7 @@ public class ServerChaton {
     private static final Logger logger = Logger.getLogger(ServerChaton.class.getName());
     private final ServerSocketChannel serverSocketChannel;
     private final Selector selector;
+
     public ServerChaton(int port) throws IOException {
         serverSocketChannel = ServerSocketChannel.open();
         serverSocketChannel.bind(new InetSocketAddress(port));
@@ -174,7 +174,7 @@ public class ServerChaton {
                  */
 
                 message.fillBuffer(bufferOut);
-                if (message.isDone()){
+                if (message.isDone()) {
                     queue.removeFirst();
                 }
 
