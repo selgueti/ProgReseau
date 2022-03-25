@@ -8,45 +8,59 @@ public class StringReader implements Reader<String> {
 
     private static final int BUFFER_SIZE = 1_024;
     private static final Charset UTF8 = StandardCharsets.UTF_8;
-    private final ByteBuffer sizeBuffer = ByteBuffer.allocate(Integer.BYTES); // write-mode
     private final ByteBuffer internalBuffer = ByteBuffer.allocate(BUFFER_SIZE); // write-mode
-    private State state = State.WAITING;
-    private String value;
+    private final IntReader intReader = new IntReader();
+    private State state = State.WAITING_LENGTH;
     private int size;
-    private boolean sizeIsSet = false;
+    private String value;
+
+    private void fillInternalBufferFromBuffer(ByteBuffer buffer) {
+        if(internalBuffer.position() >= size){
+            System.out.println("Buffer is already fill");
+            return;
+        }
+        buffer.flip(); //was in WRITE, needs to be READ.
+        var oldLimit = buffer.limit();
+        var toBeRead = Math.min(size - internalBuffer.position(), buffer.remaining());
+        var limitNew = Math.min(internalBuffer.remaining(), toBeRead);
+        buffer.limit(limitNew); // setting limit to max byte available to send/be put in buffer
+        internalBuffer.put(buffer);
+        buffer.limit(oldLimit);
+        buffer.compact(); // removing from buffer all that was read + putting it back to WRITE mode.
+    }
 
     @Override
     public ProcessStatus process(ByteBuffer buffer) {
         if (state == State.DONE || state == State.ERROR) {
             throw new IllegalStateException();
         }
-        buffer.flip();
-        try {
-            while (sizeBuffer.hasRemaining() && buffer.hasRemaining() && !sizeIsSet) {
-                sizeBuffer.put(buffer.get());
+        if (state == State.WAITING_LENGTH) {
+            switch (intReader.process(buffer)) {
+                case REFILL -> {
+                    return ProcessStatus.REFILL;
+                }
+                case ERROR -> {
+                    state = State.ERROR;
+                    return ProcessStatus.ERROR;
+                }
+                case DONE -> {
+                    size = intReader.get();
+                    if (size < 0 || size > BUFFER_SIZE) {
+                        state = State.ERROR;
+                        return ProcessStatus.ERROR;
+                    }
+                    state = State.WAITING_TEXT;
+                    // Don't return, buffer isn't necessarily empty
+                }
             }
-            if (!sizeBuffer.hasRemaining() && !sizeIsSet) {
-                sizeBuffer.flip();
-                size = sizeBuffer.getInt();
-                sizeIsSet = true;
-            }
-            if (size < 0 || size > BUFFER_SIZE) {
-                state = State.ERROR;
-                return ProcessStatus.ERROR;
-            }
-            while (internalBuffer.hasRemaining() && buffer.hasRemaining() && size != internalBuffer.position()) {
-                internalBuffer.put(buffer.get());
-            }
-        } finally {
-            buffer.compact();
         }
-        if (!sizeIsSet || (internalBuffer.position() < size)) {
+        fillInternalBufferFromBuffer(buffer);
+        if (internalBuffer.position() < size) {
             return ProcessStatus.REFILL;
         }
         state = State.DONE;
         internalBuffer.flip();
         value = UTF8.decode(internalBuffer).toString();
-        internalBuffer.clear();
         return ProcessStatus.DONE;
     }
 
@@ -60,15 +74,14 @@ public class StringReader implements Reader<String> {
 
     @Override
     public void reset() {
-        state = State.WAITING;
-        internalBuffer.clear();
-        sizeBuffer.clear();
         size = 0;
-        sizeIsSet = false;
         value = null;
+        intReader.reset();
+        state = State.WAITING_LENGTH;
+        internalBuffer.clear();
     }
 
     private enum State {
-        DONE, WAITING, ERROR
+        DONE, WAITING_LENGTH, WAITING_TEXT, ERROR
     }
 }
