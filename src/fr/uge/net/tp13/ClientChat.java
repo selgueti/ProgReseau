@@ -14,14 +14,16 @@ import java.util.logging.Logger;
 
 public class ClientChat {
 
-    static private int BUFFER_SIZE = 10_000;
-    static private Logger logger = Logger.getLogger(ClientChat.class.getName());
+    static private final int BUFFER_SIZE = 10_000;
+    static private final Logger logger = Logger.getLogger(ClientChat.class.getName());
     private final SocketChannel sc;
     private final Selector selector;
     private final InetSocketAddress serverAddress;
     private final String login;
     private final Thread console;
+    private final MessageController messageController = new MessageController();
     private Context uniqueContext;
+
     public ClientChat(String login, InetSocketAddress serverAddress) throws IOException {
         this.serverAddress = serverAddress;
         this.login = login;
@@ -57,22 +59,25 @@ public class ClientChat {
     }
 
     /**
-     * Send instructions to the selector via a BlockingQueue and wake it up
+     * Send instructions to the selector via messageController and wake it up
      *
-     * @param msg
-     * @throws InterruptedException
+     * @param msg - msg
+     * @throws InterruptedException - if interrupted while waiting
      */
 
     private void sendCommand(String msg) throws InterruptedException {
-        // TODO
+        messageController.add(new Message(login, msg));
+        selector.wakeup();
     }
 
     /**
-     * Processes the command from the BlockingQueue
+     * Processes the command from the messageController
      */
 
     private void processCommands() {
-        // TODO
+        while (messageController.hasMessages()) {
+            uniqueContext.queueMessage(messageController.poll());
+        }
     }
 
     public void launch() throws IOException {
@@ -112,7 +117,7 @@ public class ClientChat {
     }
 
     private void silentlyClose(SelectionKey key) {
-        Channel sc = (Channel) key.channel();
+        Channel sc = key.channel();
         try {
             sc.close();
         } catch (IOException e) {
@@ -125,6 +130,7 @@ public class ClientChat {
         private final SocketChannel sc;
         private final ByteBuffer bufferIn = ByteBuffer.allocate(BUFFER_SIZE);
         private final ByteBuffer bufferOut = ByteBuffer.allocate(BUFFER_SIZE);
+        private final MessageReader messageReader = new MessageReader();
         private final ArrayDeque<Message> queue = new ArrayDeque<>();
         private boolean closed = false;
 
@@ -140,23 +146,45 @@ public class ClientChat {
          * and after the call
          */
         private void processIn() {
-            // TODO
+            for (; ; ) {
+                Reader.ProcessStatus status = messageReader.process(bufferIn);
+                switch (status) {
+                    case DONE:
+                        var message = messageReader.get();
+                        System.out.println(message);
+                        messageReader.reset();
+                        break;
+                    case REFILL:
+                        return;
+                    case ERROR:
+                        silentlyClose();
+                        return;
+                }
+            }
         }
 
         /**
          * Add a message to the message queue, tries to fill bufferOut and updateInterestOps
          *
-         * @param msg
+         * @param msg - msg
          */
         private void queueMessage(Message msg) {
-            // TODO
+            queue.addLast(msg);
+            processOut();
+            updateInterestOps();
         }
 
         /**
          * Try to fill bufferOut from the message queue
          */
         private void processOut() {
-            // TODO
+            while (!queue.isEmpty()) {
+                var message = queue.peekFirst();
+                message.fillBuffer(bufferOut);
+                if (message.isDone()) {
+                    queue.removeFirst();
+                }
+            }
         }
 
         /**
@@ -164,12 +192,26 @@ public class ClientChat {
          * closed and of both ByteBuffers.
          * <p>
          * The convention is that both buffers are in write-mode before the call to
-         * updateInterestOps and after the call. Also it is assumed that process has
+         * updateInterestOps and after the call. Also, it is assumed that process has
          * been be called just before updateInterestOps.
          */
 
         private void updateInterestOps() {
-            // TODO
+            var interestOps = 0;
+            if (!key.isValid()) {
+                return;
+            }
+            if (!closed && bufferIn.hasRemaining()) {
+                interestOps |= SelectionKey.OP_READ;
+            }
+            if (bufferOut.position() != 0) {
+                interestOps |= SelectionKey.OP_WRITE;
+            }
+            if (interestOps == 0) {
+                silentlyClose();
+                return;
+            }
+            key.interestOps(interestOps);
         }
 
         private void silentlyClose() {
@@ -186,10 +228,14 @@ public class ClientChat {
          * The convention is that both buffers are in write-mode before the call to
          * doRead and after the call
          *
-         * @throws IOException
+         * @throws IOException - If an I/O error occurs
          */
         private void doRead() throws IOException {
-            // TODO
+            if (-1 == sc.read(bufferIn)) {
+                closed = true;
+            }
+            processIn();
+            updateInterestOps();
         }
 
         /**
@@ -198,11 +244,15 @@ public class ClientChat {
          * The convention is that both buffers are in write-mode before the call to
          * doWrite and after the call
          *
-         * @throws IOException
+         * @throws IOException - If an I/O error occurs
          */
 
         private void doWrite() throws IOException {
-            // TODO
+            bufferOut.flip();
+            sc.write(bufferOut);
+            bufferOut.compact();
+            processOut();
+            updateInterestOps();
         }
 
         public void doConnect() throws IOException {
