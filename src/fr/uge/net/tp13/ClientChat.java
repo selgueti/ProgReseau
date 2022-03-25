@@ -102,7 +102,9 @@ public class ClientChat {
         }
 
         public void doConnect() throws IOException {
-            // TODO
+            if (!sc.finishConnect())
+                return; // the selector gave a bad hint
+            key.interestOps(SelectionKey.OP_READ);
         }
     }
 

@@ -9,7 +9,7 @@ public class MessageReader implements Reader<Message> {
     }
 
     private final StringReader loginReader = new StringReader();
-    private final StringReader messageReader = new StringReader();
+    private final StringReader textReader = new StringReader();
     private State state = State.WAITING;
     private boolean loginRead = false;
     private String login;
@@ -38,9 +38,9 @@ public class MessageReader implements Reader<Message> {
                 }
             }
         }
-        switch (messageReader.process(bb)) {
+        switch (textReader.process(bb)) {
             case DONE -> {
-                message = messageReader.get();
+                message = textReader.get();
                 status = ProcessStatus.DONE;
                 state = State.DONE;
                 break;
@@ -69,10 +69,10 @@ public class MessageReader implements Reader<Message> {
     @Override
     public void reset() {
         loginReader.reset();
-        messageReader.reset();
+        textReader.reset();
         state = State.WAITING;
         loginRead = false;
-        login = "";
-        message = "";
+        login = null;
+        message = null;
     }
 }

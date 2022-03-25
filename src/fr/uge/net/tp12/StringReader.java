@@ -65,7 +65,7 @@ public class StringReader implements Reader<String> {
         sizeBuffer.clear();
         size = 0;
         sizeIsSet = false;
-        value = "";
+        value = null;
     }
 
     private enum State {
