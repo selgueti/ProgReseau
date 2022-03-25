@@ -123,12 +123,12 @@ public class ServerEchoWithConsoleAndTimeout {
         Thread.currentThread().interrupt();
     }
 
-    private void closeConnexionIfInaction(SelectionKey key){
-        if(key.channel() == serverSocketChannel){
+    private void closeConnexionIfInaction(SelectionKey key) {
+        if (key.channel() == serverSocketChannel) {
             return;
         }
         Context context = (Context) key.attachment(); // Safe cast
-        if(!context.activeSinceLastTimeoutCheck){
+        if (!context.activeSinceLastTimeoutCheck) {
             try {
                 key.channel().close();
             } catch (IOException e) {
@@ -137,8 +137,8 @@ public class ServerEchoWithConsoleAndTimeout {
         }
     }
 
-    private void setInaction(SelectionKey key){
-        if(key.channel() == serverSocketChannel){
+    private void setInaction(SelectionKey key) {
+        if (key.channel() == serverSocketChannel) {
             return;
         }
         Context context = (Context) key.attachment(); // Safe cast
